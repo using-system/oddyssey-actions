@@ -32,7 +32,7 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     # and the due case still warns: a gap the report still calls a gap
     assert "a telemetry gap the report still calls a gap" in arguments
     assert "a todo without raising the status" in arguments
-    assert arguments.endswith("is empty when nothing is due.\n")
+    assert arguments.endswith("is empty when there is nothing to do.\n")
     assert (
         "odd-status through copilot on gpt-5.6-luna - the checkout service"
         in result.stdout
