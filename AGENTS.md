@@ -32,9 +32,13 @@ of copying it verbatim.
 
 Never write a token, a credential or a real endpoint into anything
 committed or published: an action, a workflow, a README, an issue, a PR.
-A setup action reads no secret; the prompt-running action takes the
-ambient `github.token`, or the token its `token` input names, and sets
-it on the one step of the one CLI that needs it. Placeholder values are
+A setup action reads no secret beyond the credential input it keeps
+in a file for the launch step (opencode's key, Claude Code's key or
+token: readable by the runner's user only, never `GITHUB_ENV`, never
+printed); the prompt-running action takes the ambient `github.token`,
+or the token its `token` input names, for Copilot, and reads the
+setup's file for Claude Code, on the one step of the one CLI that
+needs it. Placeholder values are
 obviously fake.
 
 ## What an action is here
@@ -42,10 +46,10 @@ obviously fake.
 - One directory per action at the repository root, `<name>/action.yml`
   and `<name>/README.md`, consumed as
   `using-system/oddyssey-actions/<name>@<ref>`.
-- **One setup action per CLI** (`setup-copilot`, `setup-opencode`; a
-  `setup-claude` when a consumer needs it): the install, the auth, the
-  model and where the package lands differ per CLI, so a shared input
-  list would mean something else per value. Never one action with a
+- **One setup action per CLI** (`setup-copilot`, `setup-opencode`,
+  `setup-claude`): the install, the auth, the model and where the
+  package lands differ per CLI, so a shared input list would mean
+  something else per value. Never one action with a
   `cli` input. Every setup action exports `ODDYSSEY_CLI` and
   `ODDYSSEY_MODEL` (the model in that CLI's own form): the contract an
   action that runs a prompt reads to pick its launch line.
@@ -86,8 +90,10 @@ obviously fake.
   the prompt-running action sets it as `GITHUB_TOKEN` on its Copilot
   step and nowhere else - the workflow's own `github.token` by default,
   under `copilot-requests: write`, or the one its `token` input names
-  (a user token when the run must be billed to a user); a setup action
-  reads no token, and the opencode step receives none.
+  (a user token when the run must be billed to a user); for Claude
+  Code its launch step reads the credential file `setup-claude` kept,
+  into the CLI's variable, for that process; a setup action reads no
+  token, and the opencode step receives none.
 - The apm-cli pin an action installs the package with is oddyssey's
   (its `CONTRIBUTING.md`); bump it here when oddyssey bumps it, never
   ahead of it.
@@ -117,6 +123,9 @@ obviously fake.
   date or its checksums: `COPILOT_CLI_VERSION` (setup-copilot),
   `OPENCODE_VERSION` with its four `SHA256_*` (setup-opencode; opencode
   publishes no checksum file, compute them from the release's assets),
+  `CLAUDE_CODE_VERSION` (setup-claude; the `stable` channel's version,
+  `curl -fsSL https://downloads.claude.ai/claude-code-releases/stable`,
+  its manifest verified at run time),
   `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (both setups; follow
   oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`,
   `pyyaml==`, `pytest==` with its `--exclude-newer` date, and `ruff@`

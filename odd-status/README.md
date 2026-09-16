@@ -16,7 +16,7 @@ installed, and turns its verdict into outputs a workflow can gate on:
 | --- | --- | --- | --- |
 | `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
 | `fail-on` | no | `none` | Fail the step when the judged status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
-| `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode run never receives it. The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user. Passed as given. |
+| `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode and Claude Code runs never receive it. The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user. Passed as given. |
 
 ## Outputs
 
@@ -67,6 +67,15 @@ documents:
   equivalent of `--no-custom-instructions`, so a branch writes part of
   the run's instructions - one more reason to keep the step off any
   trigger that carries untrusted input.
+- **Claude Code** ([`setup-claude`](../setup-claude/README.md)):
+  nothing beyond the setup; the launch step reads the credential file
+  the setup kept into the CLI's own variable (`ANTHROPIC_API_KEY` or
+  `CLAUDE_CODE_OAUTH_TOKEN`, by its kind) for that one process, and
+  fails when either is already in its environment, since the CLI would
+  prefer it. The launch line bypasses permissions (non-interactive mode
+  requires it), loads the user-scope settings only (nothing from the
+  checkout's `.claude/`), writes no session to disk and runs with the
+  updater off; the checkout's `CLAUDE.md` still reaches the run.
 
 Without a setup action earlier in the job, the step fails and says so.
 The action needs `python3` on the runner's `PATH` (the ubuntu and macOS
@@ -103,9 +112,10 @@ jobs:
           TODO: ${{ steps.status.outputs.todo }}
 ```
 
-With opencode, replace the setup step by `setup-opencode` with its
-`openai-api-key` and drop the `copilot-requests` permission: the
-opencode step receives no token. To bill the Copilot run to a user,
+With opencode or Claude Code, replace the setup step by
+`setup-opencode` with its `openai-api-key`, or `setup-claude` with its
+`claude-oauth-token` or `anthropic-api-key`, and drop the
+`copilot-requests` permission: those steps receive no token. To bill the Copilot run to a user,
 add `token: ${{ secrets.COPILOT_USER_TOKEN }}` under `with:`.
 
 ## What this grants

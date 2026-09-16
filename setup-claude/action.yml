@@ -1,0 +1,120 @@
+name: "Setup Claude Code for oddyssey"
+description: >-
+  Install Claude Code and the oddyssey package on the runner, an Anthropic
+  API key or a Claude OAuth token as its credential, ready for a later
+  step that runs an oddyssey prompt.
+author: using-system
+branding:
+  icon: terminal
+  color: purple
+
+inputs:
+  model:
+    description: >-
+      The Claude model the missions run on, as `claude --model` names it:
+      an alias for the latest of a tier (`fable`, `opus`, `sonnet`,
+      `haiku`) or a full id (`claude-sonnet-5`). Exported to the later
+      steps as ODDYSSEY_MODEL; never written to a config file. Defaults
+      to `claude-sonnet-5`, the cheapest Claude model the oddyssey
+      benchmark measured.
+    required: false
+    default: claude-sonnet-5
+  oddyssey-version:
+    description: >-
+      The oddyssey release to install: a release tag (`v1.12.1`), a
+      full commit SHA, or `latest`, the newest release tag at the time
+      the workflow runs.
+    required: false
+    default: latest
+  anthropic-api-key:
+    description: >-
+      An Anthropic API key - a secret. One of this and
+      `claude-oauth-token`, never both. Written to a file under the
+      runner's temporary directory that the launch step reads; never
+      written to GITHUB_ENV (no later step sees it), never printed.
+    required: false
+    default: ""
+  claude-oauth-token:
+    description: >-
+      A Claude OAuth token from `claude setup-token` - a secret, for a
+      Claude subscription. One of this and `anthropic-api-key`, never
+      both. Kept the same way.
+    required: false
+    default: ""
+
+outputs:
+  claude-version:
+    description: The Claude Code version installed (`2.1.267`).
+    value: ${{ steps.claude.outputs.version }}
+  oddyssey-version:
+    description: The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given).
+    value: ${{ steps.resolve.outputs.version }}
+  model:
+    description: The `model` input, echoed for the launch line.
+    value: ${{ inputs.model }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the oddyssey release
+      id: resolve
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/resolve.sh
+        REQUESTED: ${{ inputs.oddyssey-version }}
+      run: "$SCRIPT"
+
+    - name: Install Claude Code
+      id: claude
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/install-claude.sh
+        # The Claude Code release this action installs - pinned, bumped
+        # here on purpose (AGENTS.md lists it): the `stable` channel's
+        # version when the pin was set. Its binary is fetched from the
+        # release channel's own assets and verified against that
+        # release's manifest before it lands; the step fails when the
+        # manifest cannot be read. No installer script, no npm, no token.
+        CLAUDE_CODE_VERSION: "2.1.267"
+        PREFIX: ${{ runner.temp }}/claude-code
+      run: "$SCRIPT"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+    - name: Install the oddyssey package for the claude target
+      id: package
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/install-package.sh
+        # oddyssey's own apm-cli pin (its CONTRIBUTING.md): the minimum
+        # version that deploys the package whole. Bump it when oddyssey does,
+        # and move the date with it: uvx resolves apm-cli's dependency
+        # closure from PyPI at run time, and the date bounds that
+        # resolution to what existed when the pin was set.
+        APM_CLI_VERSION: "0.30.0"
+        APM_CLI_PINNED_ON: "2026-09-16"
+        VERSION: ${{ steps.resolve.outputs.version }}
+        MODEL: ${{ inputs.model }}
+      run: "$SCRIPT"
+
+    - name: Keep the credential for the launch step
+      id: credential
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/credential.sh
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-oauth-token }}
+        CREDENTIAL_FILE: ${{ runner.temp }}/claude-code/credential
+      run: "$SCRIPT"
+
+    - name: What the runner carries
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/summary.sh
+        CLAUDE_VERSION: ${{ steps.claude.outputs.version }}
+        VERSION: ${{ steps.resolve.outputs.version }}
+        SKILLS: ${{ steps.package.outputs.skills }}
+        MODEL: ${{ inputs.model }}
+        KIND: ${{ steps.credential.outputs.kind }}
+      run: "$SCRIPT"

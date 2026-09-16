@@ -60,9 +60,10 @@ jobs:
     # a matrix line and one gated `uses:` line.
     #
     # The Copilot smoke runs on the workflow's token, which odd-status
-    # reads itself on its Copilot step (copilot-requests: write here), and
-    # the opencode smoke on the repository's endpoint key: both spend
-    # money or hold a secret, so neither runs on a fork's PR - the setup
+    # reads itself on its Copilot step (copilot-requests: write here), the
+    # opencode smoke on the repository's endpoint key, the Claude Code
+    # smoke on the repository's OAuth token: they spend money or hold a
+    # secret, so none runs on a fork's PR - the setup
     # still does, with a placeholder key no step of the setup spends, so
     # every cell reports its required check (a job-level condition would
     # collapse the matrix into one unexpanded check the ruleset never
@@ -72,12 +73,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        action: [setup-copilot, setup-opencode]
+        action: [setup-copilot, setup-opencode, setup-claude]
         os: [ubuntu-latest, macos-latest]
         oddyssey-version: [latest, v1.12.0]
         include:
           - { action: odd-status, cli: copilot, os: ubuntu-latest, oddyssey-version: latest }
           - { action: odd-status, cli: opencode, os: ubuntu-latest, oddyssey-version: latest }
+          - { action: odd-status, cli: claude, os: ubuntu-latest, oddyssey-version: latest }
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -104,6 +106,16 @@ jobs:
         with:
           oddyssey-version: ${{ matrix.oddyssey-version }}
           openai-api-key: ${{ secrets.OPENROUTER_API_KEY || 'fork-pr-placeholder-key' }}
+      - id: setup-claude
+        if: matrix.action == 'setup-claude' || matrix.cli == 'claude'
+        # No model: the default is what runs, the smoke included. The
+        # OAuth token is the repository's (the smoke is billed to that
+        # subscription); a fork's PR gets a placeholder no step of the
+        # setup spends. The API key path has no smoke: no key is held.
+        uses: ./setup-claude
+        with:
+          oddyssey-version: ${{ matrix.oddyssey-version }}
+          claude-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN || 'fork-pr-placeholder-token' }}
       - id: odd-status
         if: >-
           matrix.action == 'odd-status'
@@ -117,10 +129,11 @@ jobs:
         if: matrix.action != 'odd-status' || steps.odd-status.outcome == 'success'
         env:
           REQUESTED: ${{ matrix.oddyssey-version }}
-          RESOLVED: ${{ steps.setup-copilot.outputs.oddyssey-version || steps.setup-opencode.outputs.oddyssey-version }}
-          MODEL: ${{ steps.setup-copilot.outputs.model || steps.setup-opencode.outputs.model }}
+          RESOLVED: ${{ steps.setup-copilot.outputs.oddyssey-version || steps.setup-opencode.outputs.oddyssey-version || steps.setup-claude.outputs.oddyssey-version }}
+          MODEL: ${{ steps.setup-copilot.outputs.model || steps.setup-opencode.outputs.model || steps.setup-claude.outputs.model }}
           COPILOT_VERSION: ${{ steps.setup-copilot.outputs.copilot-version }}
           OPENCODE_VERSION: ${{ steps.setup-opencode.outputs.opencode-version }}
+          CLAUDE_VERSION: ${{ steps.setup-claude.outputs.claude-version }}
           STATUS: ${{ steps.odd-status.outputs.status }}
           SUMMARY: ${{ steps.odd-status.outputs.summary }}
           TODO: ${{ steps.odd-status.outputs.todo }}

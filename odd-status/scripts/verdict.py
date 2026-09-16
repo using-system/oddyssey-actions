@@ -1,11 +1,11 @@
 """Turn a headless run's event stream into the odd-status verdict.
 
-    verdict.py --cli copilot|opencode --events <run.jsonl> --fail-on none|warning|error \
+    verdict.py --cli copilot|opencode|claude --events <run.jsonl> --fail-on none|warning|error \
         [--outputs <GITHUB_OUTPUT>] [--summary <GITHUB_STEP_SUMMARY>]
 
-Reads the CLI's JSON event stream, takes the run's final answer (copilot:
-the last `assistant.message` with content; opencode: the text parts of
-the last message), and extracts the one fenced ```json block the prompt
+Reads the CLI's JSON output, takes the run's final answer (copilot: the
+last `assistant.message` with content; opencode: the text parts of the
+last message; claude: the `result` of the one result object), and extracts the one fenced ```json block the prompt
 asked for: {"status": "ok"|"warning"|"error", "summary": str,
 "todo": [{"action": str, "why": str}, ...]}. A missing or malformed block
 is an `error` verdict whose summary says so. Writes `status`, `summary`,
@@ -32,6 +32,14 @@ def events(path: Path) -> list[dict]:
 
 
 def events_from_text(text: str) -> list[dict]:
+    # one JSON document over several lines (claude's result object) is
+    # one event; otherwise one event per line
+    try:
+        whole = json.loads(text)
+    except json.JSONDecodeError:
+        whole = None
+    if isinstance(whole, dict):
+        return [whole]
     out = []
     for line in text.splitlines():
         line = line.strip()
@@ -60,6 +68,14 @@ def final_answer(cli: str, stream: list[dict]) -> str:
             if isinstance(content, str) and content:
                 answer = content
         return answer
+    if cli == "claude":
+        # claude: one result object (--output-format json), its `result`
+        # the final text; an error result carries no answer.
+        for event in stream:
+            if event.get("type") == "result" and not event.get("is_error"):
+                result = event.get("result")
+                return result if isinstance(result, str) else ""
+        return ""
     # opencode: the text parts of the last message that carried any
     last_message, parts = None, []
     for event in stream:
@@ -159,7 +175,9 @@ def write_summary(path: Path, verdict: dict, report: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--cli", required=True, choices=("copilot", "opencode"))
+    parser.add_argument(
+        "--cli", required=True, choices=("copilot", "opencode", "claude")
+    )
     parser.add_argument("--events", required=True, type=Path)
     parser.add_argument(
         "--fail-on", required=True, choices=("none", "warning", "error")

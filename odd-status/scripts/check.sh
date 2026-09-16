@@ -2,7 +2,7 @@
 # Check the setup and the inputs before any CLI runs, and write the command's arguments.
 #
 # Reads:  PROMPT, FAIL_ON - the prompt and fail-on inputs
-#         ODDYSSEY_CLI, ODDYSSEY_MODEL - what a setup action exported
+#         ODDYSSEY_CLI, ODDYSSEY_MODEL - what a setup action exported (copilot, opencode or claude)
 #         ARGUMENTS_FILE - where the command's arguments go for the launch step
 # Writes: ARGUMENTS_FILE - the prompt, then the verdict instruction
 #         GITHUB_OUTPUT - cli=copilot|opencode
@@ -19,8 +19,8 @@ if [ -z "${ODDYSSEY_CLI:-}" ] || [ -z "${ODDYSSEY_MODEL:-}" ]; then
   echo "::error::ODDYSSEY_CLI and ODDYSSEY_MODEL are not set - run a setup action (setup-copilot, setup-opencode) earlier in the job."
   exit 1
 fi
-case "$ODDYSSEY_CLI" in copilot|opencode) ;; *)
-  echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot or opencode."; exit 1 ;;
+case "$ODDYSSEY_CLI" in copilot|opencode|claude) ;; *)
+  echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot, opencode or claude."; exit 1 ;;
 esac
 # The verdict the run must end with - the contract verdict.py parses.
 # The judgement is the model's; the shape is not.

@@ -1,7 +1,8 @@
 name: "oddyssey odd-status"
 description: >-
-  Run the packaged /odd-status through the CLI a setup action installed,
-  and turn its verdict into outputs a workflow can gate on.
+  Run the packaged /odd-status through the CLI a setup action installed
+  (Copilot, opencode or Claude Code), and turn its verdict into outputs a
+  workflow can gate on.
 author: using-system
 branding:
   icon: activity
@@ -26,8 +27,8 @@ inputs:
   token:
     description: >-
       The token the Copilot run authenticates with, set as `GITHUB_TOKEN`
-      on the Copilot launch step and nowhere else; the opencode run never
-      receives it. Defaults to the workflow's own token, which needs the
+      on the Copilot launch step and nowhere else; the opencode and Claude
+      Code runs never receive it. Defaults to the workflow's own token, which needs the
       job permission `copilot-requests: write`; a user token when the run
       must be billed to a user. The action passes it as given.
     required: false
@@ -80,6 +81,17 @@ runs:
         SCRIPT: ${{ github.action_path }}/scripts/run-opencode.sh
         ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
         EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
+      run: "$SCRIPT"
+
+    - name: Run the packaged odd-status through Claude Code
+      if: steps.check.outputs.cli == 'claude'
+      shell: bash
+      env:
+        SCRIPT: ${{ github.action_path }}/scripts/run-claude.sh
+        ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
+        EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
+        # No token here: the credential is setup-claude's, in the file
+        # its environment names; the script reads it for the CLI alone.
       run: "$SCRIPT"
 
     - name: The verdict

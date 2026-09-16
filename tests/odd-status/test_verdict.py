@@ -27,6 +27,21 @@ def copilot_stream(answer: str) -> str:
     return "\n".join(json.dumps(line) for line in lines) + "\n"
 
 
+def claude_result(answer: str, error: bool = False) -> str:
+    return (
+        json.dumps(
+            {
+                "type": "result",
+                "subtype": "error" if error else "success",
+                "is_error": error,
+                "result": answer,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+
+
 def opencode_stream(answer: str) -> str:
     half = len(answer) // 2
     lines = [
@@ -169,3 +184,19 @@ def test_no_answer_fails_whatever_fail_on(tmp_path):
     code, out, _ = run(tmp_path, "copilot", '{"type": "result", "data": {}}\n', "none")
     assert code == 1
     assert "no answer" in out
+
+
+def test_claude_answer_is_the_result_object_over_several_lines():
+    assert (
+        verdict.final_answer("claude", verdict.events_from_text(claude_result(ANSWER)))
+        == ANSWER
+    )
+
+
+def test_claude_error_result_is_no_answer():
+    assert (
+        verdict.final_answer(
+            "claude", verdict.events_from_text(claude_result("boom", error=True))
+        )
+        == ""
+    )
