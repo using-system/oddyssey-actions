@@ -40,11 +40,16 @@ and never reads a secret itself. Placeholder values are obviously fake.
 - One directory per action at the repository root, `<name>/action.yml`
   and `<name>/README.md`, consumed as
   `using-system/oddyssey-actions/<name>@<ref>`.
-- **One setup action per CLI** (`setup-copilot`; a `setup-claude` or a
-  `setup-opencode` when a consumer needs it): the install, the auth,
-  the model and where the package lands differ per CLI, so a shared
-  input list would mean something else per value. Never one action
-  with a `cli` input.
+- **One setup action per CLI** (`setup-copilot`, `setup-opencode`; a
+  `setup-claude` when a consumer needs it): the install, the auth, the
+  model and where the package lands differ per CLI, so a shared input
+  list would mean something else per value. Never one action with a
+  `cli` input. Every setup action exports `ODDYSSEY_CLI` and
+  `ODDYSSEY_MODEL` (the model in that CLI's own form): the contract an
+  action that runs a prompt reads to pick its launch line.
+- **An action runs a prompt; a consumer never writes a headless line.**
+  The README of a setup action shows the prompt-running action as the
+  next step, never a hand-written `copilot -p` or `opencode run`.
 - A composite action, its steps in bash. An action installs and prints
   what it installed (the CLI version, the package version resolved,
   what was deployed) so the workflow log states what ran; it validates
@@ -78,8 +83,11 @@ and never reads a secret itself. Placeholder values are obviously fake.
 - **A pin that lives in an `env:` or a `run:` string is invisible to
   Dependabot.** They are, and they are bumped by hand, each with its
   date or its checksums: `COPILOT_CLI_VERSION` (setup-copilot),
-  `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (setup-copilot; follow
-  oddyssey's pin), `ACTIONLINT_VERSION` and `pyyaml==` (ci), the
+  `OPENCODE_VERSION` with its four `SHA256_*` (setup-opencode; opencode
+  publishes no checksum file, compute them from the release's assets),
+  `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (both setups; follow
+  oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`
+  and `pyyaml==` (ci), the
   `v1.12.0` matrix cell (ci; it is also a required check's name in the
   `main` ruleset - change both together), the versions CONTRIBUTING.md
   quotes.

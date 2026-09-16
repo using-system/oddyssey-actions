@@ -1,0 +1,265 @@
+name: "Setup opencode for oddyssey"
+description: >-
+  Install opencode and the oddyssey package on the runner, an
+  OpenAI-compatible endpoint as its model provider, ready for a later
+  step that runs an oddyssey prompt.
+author: using-system
+branding:
+  icon: terminal
+  color: purple
+
+inputs:
+  model:
+    description: >-
+      The model the missions run on, as the endpoint names it
+      (`openai/gpt-5.6-luna` on OpenRouter). Declared to opencode under
+      the `openai-compatible` provider and exported to the later steps as
+      ODDYSSEY_MODEL in opencode's `provider/model` form. Defaults to
+      `openai/gpt-5.6-luna`, the cheapest model the oddyssey benchmark
+      measured.
+    required: false
+    default: openai/gpt-5.6-luna
+  oddyssey-version:
+    description: >-
+      The oddyssey release to install: a release tag (`v1.12.1`), a
+      full commit SHA, or `latest`, the newest release tag at the time
+      the workflow runs.
+    required: false
+    default: latest
+  openai-base-url:
+    description: >-
+      The OpenAI-compatible endpoint (`/v1/chat/completions` behind it)
+      the model is served from. Defaults to OpenRouter's.
+    required: false
+    default: https://openrouter.ai/api/v1
+  openai-api-key:
+    description: >-
+      The API key of that endpoint - a secret. Written to a file under the
+      runner's temporary directory that opencode's provider reads; never
+      exported to the environment, never printed.
+    required: true
+
+outputs:
+  opencode-version:
+    description: The opencode version installed (`1.18.31`).
+    value: ${{ steps.opencode.outputs.version }}
+  oddyssey-version:
+    description: The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given).
+    value: ${{ steps.resolve.outputs.version }}
+  model:
+    description: The model in opencode's form (`openai-compatible/openai/gpt-5.6-luna`).
+    value: openai-compatible/${{ inputs.model }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check the inputs
+      shell: bash
+      env:
+        MODEL: ${{ inputs.model }}
+        BASE_URL: ${{ inputs.openai-base-url }}
+        API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        set -euo pipefail
+        # Each input reaches a config file or $GITHUB_ENV: only plain
+        # values may pass. The key is checked for shape, never printed.
+        case "$MODEL" in
+          ''|*[!A-Za-z0-9._/:-]*)
+            echo "::error::model must be a plain model id ([A-Za-z0-9._/:-]+), got '${MODEL}'."
+            exit 1 ;;
+        esac
+        if ! printf '%s' "$BASE_URL" | grep -Eq '^https://[A-Za-z0-9._~:/?#@!$&+,;=%-]+$'; then
+          echo "::error::openai-base-url must be an https:// URL made of URL characters, got '${BASE_URL}'."
+          exit 1
+        fi
+        case "$API_KEY" in
+          '') echo "::error::openai-api-key is empty."; exit 1 ;;
+          *[[:space:]]*) echo "::error::openai-api-key carries whitespace."; exit 1 ;;
+        esac
+
+    - name: Resolve the oddyssey release
+      id: resolve
+      shell: bash
+      env:
+        REQUESTED: ${{ inputs.oddyssey-version }}
+      run: |
+        set -euo pipefail
+        # Resolved first: a wrong input costs nothing else. A full commit
+        # SHA is taken as is - the one immutable form; a tag is checked
+        # against the remote's release tags (plain vX.Y.Z), read with no
+        # API call and no token.
+        if printf '%s' "$REQUESTED" | grep -Eq '^[0-9a-f]{40}$'; then
+          version="$REQUESTED"
+        else
+          tags="$( (git ls-remote --tags --refs https://github.com/using-system/oddyssey.git 'refs/tags/v*' || true) \
+            | awk -F/ '{print $NF}' | (grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) | sort -V)"
+          if [ -z "$tags" ]; then
+            echo "::error::no release tag of using-system/oddyssey could be read from github.com."
+            exit 1
+          fi
+          if [ "$REQUESTED" = "latest" ]; then
+            version="$(printf '%s\n' "$tags" | tail -1)"
+          else
+            version="$REQUESTED"
+            case "$version" in v*) ;; *) version="v${version}" ;; esac
+            if ! printf '%s\n' "$tags" | grep -qxF "$version"; then
+              echo "::error::oddyssey-version '${REQUESTED}' is not a release tag of using-system/oddyssey (a plain vX.Y.Z, a full commit SHA, or latest)."
+              exit 1
+            fi
+          fi
+        fi
+        echo "oddyssey ${version} (requested: ${REQUESTED})"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Install opencode
+      id: opencode
+      shell: bash
+      env:
+        # The opencode release this action installs - pinned, bumped here
+        # on purpose with the four checksums below (AGENTS.md lists it).
+        # opencode publishes no checksum file: these were computed from
+        # the release's assets when the pin was set, and the archive is
+        # verified against them before anything is extracted.
+        OPENCODE_VERSION: "1.18.31"
+        SHA256_LINUX_X64: "e9312be75ed803b7415fc2aeabda1f4fe938912a39673762dc0c38c0e11ebde4"
+        SHA256_LINUX_ARM64: "d4e332f46b227448582c0d9fc75f6f826dfe95c9f751bc2011fc4d937a042be6"
+        SHA256_DARWIN_ARM64: "caf7f31fa1aec2353ea859d4ef9ab824c6273d941b016e88d51193fa3028d34e"
+        SHA256_DARWIN_X64: "f8510eaf400f07c3a2014e3a517e3650c705bcd6ac3e6740351b723ee685042f"
+        PREFIX: ${{ runner.temp }}/opencode
+      run: |
+        set -euo pipefail
+        case "$(uname -s)/$(uname -m)" in
+          Linux/x86_64|Linux/amd64) asset="opencode-linux-x64.tar.gz"; expected="$SHA256_LINUX_X64" ;;
+          Linux/aarch64|Linux/arm64) asset="opencode-linux-arm64.tar.gz"; expected="$SHA256_LINUX_ARM64" ;;
+          Darwin/arm64) asset="opencode-darwin-arm64.zip"; expected="$SHA256_DARWIN_ARM64" ;;
+          Darwin/x86_64) asset="opencode-darwin-x64.zip"; expected="$SHA256_DARWIN_X64" ;;
+          *) echo "::error::unsupported runner $(uname -s)/$(uname -m)"; exit 1 ;;
+        esac
+        work="$(mktemp -d)"
+        curl -fsSL --retry 3 -o "${work}/${asset}" "https://github.com/sst/opencode/releases/download/v${OPENCODE_VERSION}/${asset}"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "${work}/${asset}" | awk '{print $1}')"
+        else
+          actual="$(shasum -a 256 "${work}/${asset}" | awk '{print $1}')"
+        fi
+        if [ "$actual" != "$expected" ]; then
+          echo "::error::${asset} of opencode v${OPENCODE_VERSION} does not match the checksum this action pins (got ${actual})."
+          exit 1
+        fi
+        mkdir -p "${PREFIX}/bin"
+        case "$asset" in
+          *.tar.gz) tar -xzf "${work}/${asset}" -C "${PREFIX}/bin" ;;
+          *.zip) unzip -q -o "${work}/${asset}" -d "${PREFIX}/bin" ;;
+        esac
+        chmod +x "${PREFIX}/bin/opencode"
+        rm -rf "$work"
+        echo "${PREFIX}/bin" >> "$GITHUB_PATH"
+        version="$("${PREFIX}/bin/opencode" --version | tr -d '[:space:]')"
+        if [ "$version" != "$OPENCODE_VERSION" ]; then
+          echo "::error::the installed opencode answered '${version}', not version ${OPENCODE_VERSION}."
+          exit 1
+        fi
+        echo "opencode ${version} (${asset}, checksum verified)"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+    - name: Install the oddyssey package for the opencode target
+      id: package
+      shell: bash
+      env:
+        # oddyssey's own apm-cli pin (its CONTRIBUTING.md), and the date
+        # that bounds the closure uvx resolves from PyPI at run time. Bump
+        # both when oddyssey bumps the pin.
+        APM_CLI_VERSION: "0.30.0"
+        APM_CLI_PINNED_ON: "2026-09-16"
+        VERSION: ${{ steps.resolve.outputs.version }}
+      run: |
+        set -euo pipefail
+        # User scope: agents, commands and skills land under
+        # ~/.config/opencode/ and the checkout stays clean. --only apm: apm
+        # cannot register an MCP server at user scope for opencode - the
+        # next step writes it into opencode's global config itself.
+        # apm-cli declares Python >=3.10 but imports a 3.11 name: the
+        # constraint keeps uvx off an older interpreter a runner may carry
+        # first on its PATH (macOS ships 3.9 at /usr/bin/python3).
+        uvx --python '>=3.11' --exclude-newer "$APM_CLI_PINNED_ON" --from "apm-cli==${APM_CLI_VERSION}" \
+          apm install --global --target opencode --only apm "using-system/oddyssey#${VERSION}"
+        skills="$( (find "$HOME/.config/opencode/skills" -mindepth 2 -maxdepth 2 -name SKILL.md 2>/dev/null || true) | wc -l | tr -d ' ')"
+        if [ "$skills" -eq 0 ]; then
+          echo "::error::apm ${APM_CLI_VERSION} deployed no skill for oddyssey ${VERSION} - the package is not usable without them."
+          exit 1
+        fi
+        echo "skills=${skills}" >> "$GITHUB_OUTPUT"
+
+    - name: Configure opencode - the provider, the model, the MCP server
+      shell: bash
+      env:
+        MODEL: ${{ inputs.model }}
+        BASE_URL: ${{ inputs.openai-base-url }}
+        API_KEY: ${{ inputs.openai-api-key }}
+        KEY_FILE: ${{ runner.temp }}/opencode/api-key
+        PYYAML_VERSION: "6.0.3"
+      run: |
+        set -euo pipefail
+        # The key lives in a file only opencode's provider reads
+        # ({file:...}); it is never exported and never echoed.
+        (umask 077 && printf '%s' "$API_KEY" > "$KEY_FILE")
+        # opencode's global config: the endpoint as an OpenAI-compatible
+        # provider with the model declared, and the package's MCP server
+        # read from the installed package's own manifest. A global config
+        # already on the runner is replaced.
+        uv run --no-project --with "pyyaml==${PYYAML_VERSION}" python - "$MODEL" "$BASE_URL" "$KEY_FILE" <<'PY'
+        import json, os, pathlib, sys
+        import yaml
+        model, base_url, key_file = sys.argv[1:4]
+        home = pathlib.Path.home()
+        manifest = yaml.safe_load((home / ".apm/apm_modules/using-system/oddyssey/apm.yml").read_text())
+        mcp = {}
+        for server in (manifest.get("dependencies") or {}).get("mcp") or []:
+            if server.get("transport") == "stdio" and server.get("command"):
+                mcp[server["name"]] = {"type": "local", "command": [server["command"], *server.get("args", [])], "enabled": True}
+        config = {
+            "$schema": "https://opencode.ai/config.json",
+            "provider": {
+                "openai-compatible": {
+                    "npm": "@ai-sdk/openai-compatible",
+                    "name": "OpenAI-compatible endpoint (setup-opencode)",
+                    "options": {"baseURL": base_url, "apiKey": "{file:" + key_file + "}"},
+                    "models": {model: {"name": model}},
+                }
+            },
+            "mcp": mcp,
+        }
+        target = home / ".config/opencode/opencode.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(config, indent=2) + "\n")
+        print(f"opencode.json: provider openai-compatible at {base_url}, model {model}, MCP servers {sorted(mcp) or 'none'}")
+        PY
+        {
+          echo "ODDYSSEY_CLI=opencode"
+          echo "ODDYSSEY_MODEL=openai-compatible/${MODEL}"
+        } >> "$GITHUB_ENV"
+
+    - name: What the runner carries
+      shell: bash
+      env:
+        OPENCODE_VERSION: ${{ steps.opencode.outputs.version }}
+        VERSION: ${{ steps.resolve.outputs.version }}
+        SKILLS: ${{ steps.package.outputs.skills }}
+        MODEL: ${{ inputs.model }}
+        BASE_URL: ${{ inputs.openai-base-url }}
+      run: |
+        set -euo pipefail
+        echo "opencode ${OPENCODE_VERSION}, oddyssey ${VERSION} (${SKILLS} skills), model ${MODEL} at ${BASE_URL}"
+        {
+          echo "### setup-opencode"
+          echo ""
+          echo "| | |"
+          echo "| --- | --- |"
+          echo "| opencode | ${OPENCODE_VERSION} |"
+          echo "| oddyssey | ${VERSION} (${SKILLS} skills) |"
+          echo "| model | ${MODEL} |"
+          echo "| endpoint | ${BASE_URL} |"
+        } >> "$GITHUB_STEP_SUMMARY"

@@ -10,12 +10,15 @@ inside a workflow.
 | Action | What it does |
 | --- | --- |
 | [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI (pinned, checksum-verified) and the oddyssey package on the runner, the model (default `gpt-5.6-luna`) and the package version (default `latest`; a tag or a commit SHA) as its only inputs. |
+| [`setup-opencode`](setup-opencode/README.md) | Installs opencode (pinned, checksum-verified) and the oddyssey package on the runner, an OpenAI-compatible endpoint as its provider (default OpenRouter, the key as a secret input), the same model and package version inputs. |
 
 **One setup action per CLI.** Each CLI installs, authenticates, takes its
 model and loads the package differently, so a `setup-<cli>` action owns
 one CLI end to end. There is never one action with a `cli` input whose
-other inputs mean something else per value. A `setup-claude` or
-`setup-opencode` gets its own directory when a consumer needs it.
+other inputs mean something else per value. Every setup action exports
+`ODDYSSEY_CLI` and `ODDYSSEY_MODEL` to the later steps, which is how an
+action that runs a prompt knows which CLI to launch and how. A
+`setup-claude` gets its own directory when a consumer needs it.
 
 ## Using an action
 

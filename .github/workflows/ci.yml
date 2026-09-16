@@ -81,6 +81,7 @@ jobs:
           echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
           if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
           [ "$COPILOT_MODEL" = "$MODEL" ]
+          [ "$ODDYSSEY_CLI" = "copilot" ] && [ "$ODDYSSEY_MODEL" = "$MODEL" ]
           # The nine skills oddyssey ships: deployed, and listed by the CLI
           # (read once into a file: the CLI dies of EPIPE when a grep
           # closes its pipe early).
@@ -136,4 +137,82 @@ jobs:
           print(verdict + "\n")
           print(answer)
           sys.exit(0 if skill_called and answer and sys.argv[3] in models else 1)
+          PY
+
+  setup-opencode:
+    # The action for real, on a bare checkout, same matrix. The smoke -
+    # opencode running the packaged odd-status command through the
+    # repository's OpenRouter key - spends that key: the whole job skips on
+    # a fork's PR, where the secret is withheld anyway (a skipped required
+    # check satisfies the ruleset).
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        oddyssey-version: [latest, v1.12.0]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: setup
+        # No model, no endpoint: the defaults are what run, the smoke included.
+        uses: ./setup-opencode
+        with:
+          oddyssey-version: ${{ matrix.oddyssey-version }}
+          openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+      - name: The runner carries what the action says it installed
+        env:
+          REQUESTED: ${{ matrix.oddyssey-version }}
+          RESOLVED: ${{ steps.setup.outputs.oddyssey-version }}
+          OPENCODE_VERSION: ${{ steps.setup.outputs.opencode-version }}
+          MODEL: ${{ steps.setup.outputs.model }}
+        run: |
+          set -euo pipefail
+          [ "$(opencode --version | tr -d '[:space:]')" = "$OPENCODE_VERSION" ]
+          echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
+          [ "$ODDYSSEY_CLI" = "opencode" ] && [ "$ODDYSSEY_MODEL" = "$MODEL" ]
+          # The nine skills oddyssey ships, the commands, the config with
+          # the provider and the MCP server, the key file for the user only.
+          for skill in backend-configuration get-status k6-guides observability-cli-guides odd-memory otel-guides package-layout run-scenario setup-local-stack; do
+            test -f "$HOME/.config/opencode/skills/${skill}/SKILL.md"
+          done
+          test -f "$HOME/.config/opencode/commands/odd-status.md"
+          grep -q '"openai-compatible"' "$HOME/.config/opencode/opencode.json"
+          grep -q '"oddyssey"' "$HOME/.config/opencode/opencode.json"
+          [ "$(stat -c '%a' "$RUNNER_TEMP/opencode/api-key" 2>/dev/null || stat -f '%Lp' "$RUNNER_TEMP/opencode/api-key")" = "600" ]
+          opencode models openai-compatible | grep -qxF "$MODEL"
+          # The checkout stays clean.
+          test -z "$(git status --porcelain)"
+      - name: Headless smoke - the packaged odd-status command on the bare checkout
+        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+        env:
+          MODEL: ${{ steps.setup.outputs.model }}
+        run: |
+          set -euo pipefail
+          # opencode expands the command itself (--command); --auto is what
+          # non-interactive mode requires; the events stream to a file.
+          opencode run --model "$MODEL" --format json --auto --title "ci smoke" \
+            --command odd-status "" < /dev/null > "$RUNNER_TEMP/run.jsonl"
+          # The run called the packaged skill and answered.
+          python3 - "$RUNNER_TEMP/run.jsonl" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          skill_called, texts = False, []
+          for line in open(sys.argv[1]):
+              line = line.strip()
+              if not line:
+                  continue
+              event = json.loads(line)
+              part = event.get("part") or {}
+              if event.get("type") == "tool_use" and part.get("tool") == "skill" and (part.get("state") or {}).get("input", {}).get("name") == "get-status":
+                  skill_called = True
+              if event.get("type") == "text" and part.get("text"):
+                  texts.append(part["text"])
+          answer = texts[-1] if texts else ""
+          verdict = f"skill get-status called: {skill_called}; text events: {len(texts)}"
+          print(verdict, file=sys.stderr)
+          print("### headless odd-status (opencode)\n")
+          print(verdict + "\n")
+          print(answer)
+          sys.exit(0 if skill_called and answer else 1)
           PY

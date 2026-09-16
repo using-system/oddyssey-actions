@@ -12,9 +12,10 @@ inputs:
     description: >-
       The Copilot model the missions run on, as the CLI's model picker
       names it (`gpt-5.6-luna`, `claude-sonnet-5`, ...). Exported to the
-      later steps as COPILOT_MODEL, which `--model` on the launch line
-      overrides; never written to a config file. Defaults to
-      `gpt-5.6-luna`, the cheapest model the oddyssey benchmark measured.
+      later steps as COPILOT_MODEL (which `--model` on a launch line
+      overrides) and as ODDYSSEY_MODEL; never written to a config file.
+      Defaults to `gpt-5.6-luna`, the cheapest model the oddyssey
+      benchmark measured.
     required: false
     default: gpt-5.6-luna
   oddyssey-version:
@@ -172,7 +173,11 @@ runs:
           echo "::error::apm ${APM_CLI_VERSION} deployed no skill for oddyssey ${VERSION} - the package is not usable without them."
           exit 1
         fi
-        echo "COPILOT_MODEL=${MODEL}" >> "$GITHUB_ENV"
+        {
+          echo "COPILOT_MODEL=${MODEL}"
+          echo "ODDYSSEY_CLI=copilot"
+          echo "ODDYSSEY_MODEL=${MODEL}"
+        } >> "$GITHUB_ENV"
         echo "skills=${skills}" >> "$GITHUB_OUTPUT"
 
     - name: What the runner carries
