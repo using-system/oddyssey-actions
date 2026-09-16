@@ -43,164 +43,86 @@ jobs:
         # actionlint parses workflows only; an action's steps are the
         # scripts under <action>/scripts/ (shellcheck ships on the runner).
         run: shellcheck --severity=style ./*/scripts/*.sh
-
-  scripts:
-    # The scripts the actions ship, with their tests: ruff and pytest at
-    # pinned versions, over every <action>/scripts and <action>/tests -
-    # both globs must match (an unmatched glob is passed literally).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: ruff
         run: |
-          uvx ruff@0.16.4 check ./*/scripts ./*/tests
-          uvx ruff@0.16.4 format --check ./*/scripts ./*/tests
-      - name: pytest
-        # the closure (pluggy, iniconfig, packaging) bounded to the pin's date
-        run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests
+          uvx ruff@0.16.4 check ./*/scripts ./tests
+          uvx ruff@0.16.4 format --check ./*/scripts ./tests
 
-  setup-copilot:
-    # The action for real, on a bare checkout: the newest release and a
-    # pinned one, on both runner families. The smoke is the odd-status
-    # action - the consumer's own next step - on the workflow's token,
-    # which the action reads itself on its Copilot step (copilot-requests:
-    # write on this job), on one cell only and never on a fork's PR (the
-    # permission is not granted there, and the request is billed to this
-    # repository); the token reaches that one step, never the install.
+  tests:
+    # One cell per action: its tests/<action>/ tree, first off the runner
+    # (each script of the checkout's action run with fake tools on PATH),
+    # then the action for real on this bare checkout and the tree's
+    # `runner` tests on what the runner carries. A setup runs on both
+    # runner families, the newest oddyssey release and a pinned one;
+    # odd-status runs once per CLI, on ubuntu and latest, through that
+    # CLI's setup. `uses:` takes no expression, so each action has its
+    # step here, gated on the cell - adding an action is its tests/ tree,
+    # a matrix line and one gated `uses:` line.
+    #
+    # The Copilot smoke runs on the workflow's token, which odd-status
+    # reads itself on its Copilot step (copilot-requests: write here), and
+    # the opencode smoke on the repository's endpoint key: both spend
+    # money or hold a secret, so neither runs on a fork's PR - the setup
+    # still does, with a placeholder key no step of the setup spends, so
+    # every cell reports its required check (a job-level condition would
+    # collapse the matrix into one unexpanded check the ruleset never
+    # sees). opencode has no --no-custom-instructions: the checkout's
+    # AGENTS.md reaches that run; accepted, since it runs on this
+    # repository's own branches only.
     strategy:
       fail-fast: false
       matrix:
+        action: [setup-copilot, setup-opencode]
         os: [ubuntu-latest, macos-latest]
         oddyssey-version: [latest, v1.12.0]
+        include:
+          - { action: odd-status, cli: copilot, os: ubuntu-latest, oddyssey-version: latest }
+          - { action: odd-status, cli: opencode, os: ubuntu-latest, oddyssey-version: latest }
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       copilot-requests: write
+    env:
+      ACTION: ${{ matrix.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: setup
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: The action's tests, off the runner
+        # the closure (pluggy, iniconfig, packaging) bounded to the pin's date
+        run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 --with pyyaml==6.0.3 pytest -v "./tests/${ACTION}"
+      - id: setup-copilot
+        if: matrix.action == 'setup-copilot' || matrix.cli == 'copilot'
         # No model: the default is what runs, the smoke included.
         uses: ./setup-copilot
         with:
           oddyssey-version: ${{ matrix.oddyssey-version }}
-      - name: The runner carries what the action says it installed
-        env:
-          REQUESTED: ${{ matrix.oddyssey-version }}
-          RESOLVED: ${{ steps.setup.outputs.oddyssey-version }}
-          COPILOT_VERSION: ${{ steps.setup.outputs.copilot-version }}
-          MODEL: ${{ steps.setup.outputs.model }}
-        run: |
-          set -euo pipefail
-          answer="$(copilot --version)"
-          case "${answer%%$'\n'*}" in *"$COPILOT_VERSION"*) ;; *) echo "copilot --version says: ${answer}"; exit 1 ;; esac
-          echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
-          if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
-          [ "$COPILOT_MODEL" = "$MODEL" ]
-          [ "$ODDYSSEY_CLI" = "copilot" ]
-          [ "$ODDYSSEY_MODEL" = "$MODEL" ]
-          # The nine skills oddyssey ships: deployed, and listed by the CLI
-          # (read once into a file: the CLI dies of EPIPE when a grep
-          # closes its pipe early).
-          copilot skill list > "$RUNNER_TEMP/skills.txt"
-          for skill in backend-configuration get-status k6-guides observability-cli-guides odd-memory otel-guides package-layout run-scenario setup-local-stack; do
-            test -f "$HOME/.agents/skills/${skill}/SKILL.md"
-            grep -Eq "(^|[[:space:]])${skill}([[:space:]]|$)" "$RUNNER_TEMP/skills.txt"
-          done
-          test -f "$HOME/.copilot/prompts/odd-status.prompt.md"
-          test -f "$HOME/.copilot/mcp-config.json"
-          # The checkout stays clean.
-          test -z "$(git status --porcelain)"
-      - name: The odd-status action on the bare checkout
-        id: status
-        if: >-
-          matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
-          && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-        timeout-minutes: 10
-        uses: ./odd-status
-      - name: The verdict has the shape a workflow gates on
-        if: steps.status.outcome == 'success'
-        env:
-          STATUS: ${{ steps.status.outputs.status }}
-          SUMMARY: ${{ steps.status.outputs.summary }}
-          TODO: ${{ steps.status.outputs.todo }}
-          REPORT: ${{ steps.status.outputs.report }}
-        run: |
-          set -euo pipefail
-          case "$STATUS" in ok|warning|error) ;; *) echo "status: '${STATUS}'"; exit 1 ;; esac
-          [ -n "$REPORT" ]
-          printf '%s' "$TODO" | python3 -c 'import json, sys; assert isinstance(json.load(sys.stdin), list)'
-          echo "odd-status on copilot: ${STATUS} - ${SUMMARY}"
-
-  setup-opencode:
-    # The action for real, on a bare checkout, same matrix. On a fork's PR
-    # the secret is withheld: the setup runs with a placeholder key (no
-    # step of the setup spends it) so the four matrix cells still report
-    # their required checks - a job-level condition would collapse the
-    # matrix into one unexpanded check the ruleset never sees - and the
-    # smoke, the odd-status action, which spends the key, is the one step
-    # gated on the PR's head repository. opencode has no
-    # --no-custom-instructions: the checkout's AGENTS.md reaches that run;
-    # accepted, since it runs on this repository's own branches only.
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        oddyssey-version: [latest, v1.12.0]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - id: setup
+      - id: setup-opencode
+        if: matrix.action == 'setup-opencode' || matrix.cli == 'opencode'
         # No model, no endpoint: the defaults are what run, the smoke included.
         uses: ./setup-opencode
         with:
           oddyssey-version: ${{ matrix.oddyssey-version }}
           openai-api-key: ${{ secrets.OPENROUTER_API_KEY || 'fork-pr-placeholder-key' }}
-      - name: The runner carries what the action says it installed
-        env:
-          REQUESTED: ${{ matrix.oddyssey-version }}
-          RESOLVED: ${{ steps.setup.outputs.oddyssey-version }}
-          OPENCODE_VERSION: ${{ steps.setup.outputs.opencode-version }}
-          MODEL: ${{ steps.setup.outputs.model }}
-        run: |
-          set -euo pipefail
-          [ "$(opencode --version | tr -d '[:space:]')" = "$OPENCODE_VERSION" ]
-          echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
-          if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
-          [ "$ODDYSSEY_CLI" = "opencode" ]
-          [ "$ODDYSSEY_MODEL" = "$MODEL" ]
-          # The nine skills oddyssey ships, the commands, the config with
-          # the provider and the MCP server, the key file for the user only.
-          for skill in backend-configuration get-status k6-guides observability-cli-guides odd-memory otel-guides package-layout run-scenario setup-local-stack; do
-            test -f "$HOME/.config/opencode/skills/${skill}/SKILL.md"
-          done
-          test -f "$HOME/.config/opencode/commands/odd-status.md"
-          grep -q '"openai-compatible"' "$HOME/.config/opencode/opencode.json"
-          grep -q '"oddyssey"' "$HOME/.config/opencode/opencode.json"
-          [ "$(stat -c '%a' "$RUNNER_TEMP/opencode/api-key" 2>/dev/null || stat -f '%Lp' "$RUNNER_TEMP/opencode/api-key")" = "600" ]
-          opencode models openai-compatible | grep -qxF "$MODEL"
-          # The checkout stays clean.
-          test -z "$(git status --porcelain)"
-      - name: The odd-status action on the bare checkout
-        id: status
+      - id: odd-status
         if: >-
-          matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+          matrix.action == 'odd-status'
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         timeout-minutes: 10
         uses: ./odd-status
         with:
           prompt: the whole loop
-      - name: The verdict has the shape a workflow gates on
-        if: steps.status.outcome == 'success'
+      - name: The runner carries what the action says it ran
+        # a setup's outputs, or odd-status's verdict, as the runner tests read them
+        if: matrix.action != 'odd-status' || steps.odd-status.outcome == 'success'
         env:
-          STATUS: ${{ steps.status.outputs.status }}
-          SUMMARY: ${{ steps.status.outputs.summary }}
-          TODO: ${{ steps.status.outputs.todo }}
-          REPORT: ${{ steps.status.outputs.report }}
-        run: |
-          set -euo pipefail
-          case "$STATUS" in ok|warning|error) ;; *) echo "status: '${STATUS}'"; exit 1 ;; esac
-          [ -n "$REPORT" ]
-          printf '%s' "$TODO" | python3 -c 'import json, sys; assert isinstance(json.load(sys.stdin), list)'
-          echo "odd-status on opencode: ${STATUS} - ${SUMMARY}"
+          REQUESTED: ${{ matrix.oddyssey-version }}
+          RESOLVED: ${{ steps.setup-copilot.outputs.oddyssey-version || steps.setup-opencode.outputs.oddyssey-version }}
+          MODEL: ${{ steps.setup-copilot.outputs.model || steps.setup-opencode.outputs.model }}
+          COPILOT_VERSION: ${{ steps.setup-copilot.outputs.copilot-version }}
+          OPENCODE_VERSION: ${{ steps.setup-opencode.outputs.opencode-version }}
+          STATUS: ${{ steps.odd-status.outputs.status }}
+          SUMMARY: ${{ steps.odd-status.outputs.summary }}
+          TODO: ${{ steps.odd-status.outputs.todo }}
+          REPORT: ${{ steps.odd-status.outputs.report }}
+        run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 --with pyyaml==6.0.3 pytest -v -s -m runner "./tests/${ACTION}"
