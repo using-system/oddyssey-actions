@@ -7,7 +7,7 @@ on:
 
 # The jobs run pull-request-controlled code (the actions of the PR's
 # tree): state least privilege here instead of relying on the
-# repository default.
+# repository default; the one job that needs more says so itself.
 permissions:
   contents: read
 
@@ -27,7 +27,9 @@ jobs:
           # rhysd/actionlint's own download script, pinned to the commit
           # tagged v1.7.12; the binary lands at the repository root.
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) "$ACTIONLINT_VERSION"
-          ./actionlint -color
+          # actionlint 1.7.12 predates the copilot-requests permission scope
+          # (GitHub, 2026-07-02); the one scope it does not know is ignored.
+          ./actionlint -color -ignore 'unknown permission scope "copilot-requests"'
       - name: shellcheck the actions' bash steps
         # actionlint parses workflows only; a composite action's run
         # blocks are checked one by one (shellcheck ships on the runner).
@@ -38,17 +40,18 @@ jobs:
   setup-copilot:
     # The action for real, on a bare checkout: the newest release and a
     # pinned one, on both runner families. The headless smoke - the CLI
-    # running a packaged prompt - needs a Copilot-entitled token and runs
-    # on one cell only, when the repository carries the secret; the
-    # secret itself is exposed to that one step, never to the install.
+    # running a packaged prompt - authenticates with the workflow's own
+    # token (copilot-requests: write) and runs on one cell only; the
+    # token reaches that one step, never the install.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         oddyssey-version: [latest, v1.12.0]
     runs-on: ${{ matrix.os }}
-    env:
-      HAS_COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+    permissions:
+      contents: read
+      copilot-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: setup
@@ -82,9 +85,9 @@ jobs:
           # The checkout stays clean.
           test -z "$(git status --porcelain)"
       - name: Headless smoke - the packaged /odd-status on the bare checkout
-        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest' && env.HAS_COPILOT_TOKEN == 'true'
+        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           MODEL: ${{ steps.setup.outputs.model }}
         run: |
           set -euo pipefail

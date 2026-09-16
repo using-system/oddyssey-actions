@@ -48,7 +48,9 @@ and never reads a secret itself. Placeholder values are obviously fake.
 - A composite action, its steps in bash. An action installs and prints
   what it installed (the CLI version, the package version resolved,
   what was deployed) so the workflow log states what ran; it validates
-  nothing beyond the CLI answering.
+  nothing beyond the CLI answering. The token is the launch step's:
+  the workflow's own `GITHUB_TOKEN` under `copilot-requests: write`,
+  or a user token in the CLI's variable; the action reads neither.
 - The apm-cli pin an action installs the package with is oddyssey's
   (its `CONTRIBUTING.md`); bump it here when oddyssey bumps it, never
   ahead of it.
@@ -64,15 +66,16 @@ and never reads a secret itself. Placeholder values are obviously fake.
 
 - actionlint on `.github/workflows/`, at the version the `ci`
   workflow pins:
-  `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color`
+  `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'`
+  (the ignore: actionlint 1.7.12 predates the `copilot-requests` scope)
   It parses workflows only: the actions' bash steps go through
   `python3 scripts/shellcheck_actions.py` (shellcheck on PATH, or
   `--shellcheck <binary>`), the same pass CI runs.
 - Each action's CI job runs the action for real on a bare checkout,
   latest and a pinned package version, and asserts what the runner
-  carries afterwards. Its headless smoke step - the CLI running a
-  packaged prompt - runs only when the repository carries that CLI's
-  token secret; a PR touching an action is green when both pass.
+  carries afterwards, then runs the headless smoke - the CLI running a
+  packaged prompt on the workflow's own token; a PR touching an action
+  is green when both pass.
 
 A PR pushed red costs a review round-trip; run the checks first.
 

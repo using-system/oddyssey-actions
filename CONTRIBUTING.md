@@ -25,7 +25,7 @@ opens, or comments under your name.**
 
 ```bash
 # The workflows, at the version CI pins (actionlint parses workflows only)
-docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'
 
 # The actions' bash steps, one shellcheck run per step (shellcheck on PATH,
 # or --shellcheck <binary>; the actionlint image carries one)
@@ -33,9 +33,9 @@ python3 scripts/shellcheck_actions.py
 ```
 
 An action's install steps are proven by its CI job on a real runner:
-open the PR and read the job's log and summary. The headless smoke step
-of a job (the CLI running a packaged prompt) needs that CLI's token as
-a repository secret and skips when it is absent.
+open the PR and read the job's log and summary, including the headless
+smoke step (the CLI running a packaged prompt on the workflow's own
+token).
 
 ## Pull requests
 
