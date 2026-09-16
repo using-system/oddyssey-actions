@@ -24,25 +24,34 @@ jobs:
         env:
           ACTIONLINT_VERSION: "1.7.12"
         run: |
-          # rhysd/actionlint's own download script, pinned to the commit
-          # tagged v1.7.12; the binary lands at the repository root.
-          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) "$ACTIONLINT_VERSION"
+          # The release archive and its checksums, from rhysd/actionlint's
+          # own release assets, verified before extracting; the binary
+          # lands at the repository root.
+          base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
+          asset="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$asset" "${base}/${asset}"
+          curl -fsSL --retry 3 -o checksums.txt "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing checksums.txt
+          tar -xzf "$asset" actionlint
+          rm -f "$asset" checksums.txt
           # actionlint 1.7.12 predates the copilot-requests permission scope
           # (GitHub, 2026-07-02); the one scope it does not know is ignored.
           ./actionlint -color -ignore 'unknown permission scope "copilot-requests"'
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: shellcheck the actions' bash steps
         # actionlint parses workflows only; a composite action's run
         # blocks are checked one by one (shellcheck ships on the runner).
-        run: |
-          pip3 install --quiet --disable-pip-version-check pyyaml==6.0.3
-          python3 scripts/shellcheck_actions.py
+        run: uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py
 
   setup-copilot:
     # The action for real, on a bare checkout: the newest release and a
     # pinned one, on both runner families. The headless smoke - the CLI
     # running a packaged prompt - authenticates with the workflow's own
-    # token (copilot-requests: write) and runs on one cell only; the
-    # token reaches that one step, never the install.
+    # token (copilot-requests: write) and runs on one cell only, never on
+    # a fork's PR (the permission is not granted there, and the request
+    # is billed to this repository); the token reaches that one step,
+    # never the install, and the launch line scopes what the run may do.
     strategy:
       fail-fast: false
       matrix:
@@ -85,13 +94,22 @@ jobs:
           # The checkout stays clean.
           test -z "$(git status --porcelain)"
       - name: Headless smoke - the packaged /odd-status on the bare checkout
-        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+        if: >-
+          matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+          && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MODEL: ${{ steps.setup.outputs.model }}
         run: |
           set -euo pipefail
-          copilot -p "/odd-status" --allow-all-tools --allow-all-paths --no-ask-user \
+          # The launch line the action's README documents, scoped: tools
+          # auto-approved (non-interactive mode requires it), file access
+          # to the skills only, no instructions from the checkout, the
+          # built-in GitHub MCP server off, the token stripped from the
+          # shells the run opens, the pinned CLI version and nothing newer.
+          copilot -p "/odd-status" --allow-all-tools --add-dir "$HOME/.agents/skills" \
+            --no-ask-user --no-custom-instructions --disable-builtin-mcps \
+            --secret-env-vars GITHUB_TOKEN --no-auto-update \
             --output-format json --usage-output-file "$RUNNER_TEMP/usage.json" \
             < /dev/null > "$RUNNER_TEMP/run.jsonl"
           # The run called the packaged skill, on the model the input named,

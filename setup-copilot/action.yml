@@ -19,8 +19,9 @@ inputs:
     default: gpt-5.6-luna
   oddyssey-version:
     description: >-
-      The oddyssey release to install: a release tag (`v1.12.1`) or
-      `latest`, the newest release tag.
+      The oddyssey release to install: a release tag (`v1.12.1`), a
+      full commit SHA, or `latest`, the newest release tag at the time
+      the workflow runs.
     required: false
     default: latest
 
@@ -29,7 +30,7 @@ outputs:
     description: The Copilot CLI version installed (`1.0.85`).
     value: ${{ steps.copilot.outputs.version }}
   oddyssey-version:
-    description: The oddyssey release tag resolved and installed (`v1.12.1`).
+    description: The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given).
     value: ${{ steps.resolve.outputs.version }}
   model:
     description: The `model` input, echoed for the launch line.
@@ -45,23 +46,28 @@ runs:
         REQUESTED: ${{ inputs.oddyssey-version }}
       run: |
         set -euo pipefail
-        # The release tags of using-system/oddyssey, plain vX.Y.Z only,
-        # read off the remote with no API call and no token. Resolved
-        # first: a wrong input costs nothing else.
-        tags="$( (git ls-remote --tags --refs https://github.com/using-system/oddyssey.git 'refs/tags/v*' || true) \
-          | awk -F/ '{print $NF}' | (grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) | sort -V)"
-        if [ -z "$tags" ]; then
-          echo "::error::no release tag of using-system/oddyssey could be read from github.com."
-          exit 1
-        fi
-        if [ "$REQUESTED" = "latest" ]; then
-          version="$(printf '%s\n' "$tags" | tail -1)"
-        else
+        # Resolved first: a wrong input costs nothing else. A full commit
+        # SHA is taken as is - the one immutable form; a tag is checked
+        # against the remote's release tags (plain vX.Y.Z), read with no
+        # API call and no token.
+        if printf '%s' "$REQUESTED" | grep -Eq '^[0-9a-f]{40}$'; then
           version="$REQUESTED"
-          case "$version" in v*) ;; *) version="v${version}" ;; esac
-          if ! printf '%s\n' "$tags" | grep -qxF "$version"; then
-            echo "::error::oddyssey-version '${REQUESTED}' is not a release tag of using-system/oddyssey (a plain vX.Y.Z, or latest)."
+        else
+          tags="$( (git ls-remote --tags --refs https://github.com/using-system/oddyssey.git 'refs/tags/v*' || true) \
+            | awk -F/ '{print $NF}' | (grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) | sort -V)"
+          if [ -z "$tags" ]; then
+            echo "::error::no release tag of using-system/oddyssey could be read from github.com."
             exit 1
+          fi
+          if [ "$REQUESTED" = "latest" ]; then
+            version="$(printf '%s\n' "$tags" | tail -1)"
+          else
+            version="$REQUESTED"
+            case "$version" in v*) ;; *) version="v${version}" ;; esac
+            if ! printf '%s\n' "$tags" | grep -qxF "$version"; then
+              echo "::error::oddyssey-version '${REQUESTED}' is not a release tag of using-system/oddyssey (a plain vX.Y.Z, a full commit SHA, or latest)."
+              exit 1
+            fi
           fi
         fi
         echo "oddyssey ${version} (requested: ${REQUESTED})"
@@ -71,30 +77,60 @@ runs:
       id: copilot
       shell: bash
       env:
+        # The CLI release this action installs - pinned, bumped here on
+        # purpose (AGENTS.md lists it). Its archive is fetched from the
+        # release's own assets and verified against the release's
+        # SHA256SUMS before anything is extracted; the step fails when the
+        # checksums cannot be read. No installer script, no token.
+        COPILOT_CLI_VERSION: "1.0.85"
         PREFIX: ${{ runner.temp }}/copilot-cli
-        # The installer authenticates its download with GITHUB_TOKEN when
-        # set: the ambient token spares the runner's shared, unauthenticated
-        # rate limit on api.github.com.
-        GITHUB_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
-        # GitHub's own installer: it picks the platform, downloads the
-        # latest release of github/copilot-cli and checks the archive
-        # against the release's SHA256SUMS before extracting into
-        # $PREFIX/bin. The CLI's auto-update is off on a runner (CI is set).
-        curl -fsSL https://gh.io/copilot-install | bash
-        echo "$PREFIX/bin" >> "$GITHUB_PATH"
-        # Two lines ("GitHub Copilot CLI 1.0.85." then an update hint):
-        # the first one, read whole rather than through a pipe the CLI
-        # would see closed early.
-        answer="$("$PREFIX/bin/copilot" --version)"
-        answer="${answer%%$'\n'*}"
-        version="$(printf '%s\n' "$answer" | (sed -nE 's/^GitHub Copilot CLI ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+)?)\.?$/\1/p' || true))"
-        if [ -z "$version" ]; then
-          echo "::error::the installed Copilot CLI did not answer its version (got: ${answer})."
+        case "$(uname -s)" in
+          Linux) os=linux ;;
+          Darwin) os=darwin ;;
+          *) echo "::error::unsupported runner OS $(uname -s)"; exit 1 ;;
+        esac
+        case "$(uname -m)" in
+          x86_64|amd64) arch=x64 ;;
+          aarch64|arm64) arch=arm64 ;;
+          *) echo "::error::unsupported runner architecture $(uname -m)"; exit 1 ;;
+        esac
+        asset="copilot-${os}-${arch}.tar.gz"
+        base="https://github.com/github/copilot-cli/releases/download/v${COPILOT_CLI_VERSION}"
+        work="$(mktemp -d)"
+        curl -fsSL --retry 3 -o "${work}/${asset}" "${base}/${asset}"
+        curl -fsSL --retry 3 -o "${work}/SHA256SUMS.txt" "${base}/SHA256SUMS.txt"
+        expected="$( (grep -E "  ${asset}\$" "${work}/SHA256SUMS.txt" || true) | awk '{print $1}')"
+        if [ -z "$expected" ]; then
+          echo "::error::SHA256SUMS.txt of copilot-cli v${COPILOT_CLI_VERSION} carries no entry for ${asset}."
           exit 1
         fi
-        echo "Copilot CLI ${version}"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "${work}/${asset}" | awk '{print $1}')"
+        else
+          actual="$(shasum -a 256 "${work}/${asset}" | awk '{print $1}')"
+        fi
+        if [ "$actual" != "$expected" ]; then
+          echo "::error::${asset} does not match SHA256SUMS.txt of copilot-cli v${COPILOT_CLI_VERSION} (got ${actual})."
+          exit 1
+        fi
+        mkdir -p "${PREFIX}/bin"
+        tar -xzf "${work}/${asset}" -C "${PREFIX}/bin"
+        chmod +x "${PREFIX}/bin/copilot"
+        rm -rf "$work"
+        echo "${PREFIX}/bin" >> "$GITHUB_PATH"
+        # Two lines ("GitHub Copilot CLI 1.0.85." then an update hint):
+        # the first one, read whole rather than through a pipe the CLI
+        # would see closed early. The version must be the pin.
+        answer="$("${PREFIX}/bin/copilot" --no-auto-update --version)"
+        answer="${answer%%$'\n'*}"
+        version="$(printf '%s\n' "$answer" | (sed -nE 's/^GitHub Copilot CLI ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+)?)\.?$/\1/p' || true))"
+        if [ "$version" != "$COPILOT_CLI_VERSION" ]; then
+          echo "::error::the installed Copilot CLI answered '${answer}', not version ${COPILOT_CLI_VERSION}."
+          exit 1
+        fi
+        echo "Copilot CLI ${version} (${asset}, checksum verified)"
         echo "version=${version}" >> "$GITHUB_OUTPUT"
 
     - name: Install uv
@@ -105,12 +141,23 @@ runs:
       shell: bash
       env:
         # oddyssey's own apm-cli pin (its CONTRIBUTING.md): the minimum
-        # version that deploys the package whole. Bump it when oddyssey does.
+        # version that deploys the package whole. Bump it when oddyssey does,
+        # and move the date with it: uvx resolves apm-cli's dependency
+        # closure from PyPI at run time, and the date bounds that
+        # resolution to what existed when the pin was set.
         APM_CLI_VERSION: "0.30.0"
+        APM_CLI_PINNED_ON: "2026-09-16"
         VERSION: ${{ steps.resolve.outputs.version }}
         MODEL: ${{ inputs.model }}
       run: |
         set -euo pipefail
+        # The model goes to $GITHUB_ENV, which every later step of the
+        # caller's job reads: only a plain model name may pass.
+        case "$MODEL" in
+          ''|*[!A-Za-z0-9._-]*)
+            echo "::error::model must be a plain model name ([A-Za-z0-9._-]+), got '${MODEL}'."
+            exit 1 ;;
+        esac
         # User scope: the package lands under the runner's home - prompts,
         # agents, hooks and the MCP server under ~/.copilot/, the skills
         # under ~/.agents/skills/ - and the checkout stays clean. The
@@ -118,7 +165,8 @@ runs:
         # apm-cli declares Python >=3.10 but imports a 3.11 name: the
         # constraint keeps uvx off an older interpreter a runner may
         # carry first on its PATH (macOS ships 3.9 at /usr/bin/python3).
-        uvx --python '>=3.11' --from "apm-cli==${APM_CLI_VERSION}" apm install --global --target copilot "using-system/oddyssey#${VERSION}"
+        uvx --python '>=3.11' --exclude-newer "$APM_CLI_PINNED_ON" --from "apm-cli==${APM_CLI_VERSION}" \
+          apm install --global --target copilot "using-system/oddyssey#${VERSION}"
         skills="$( (find "$HOME/.agents/skills" -mindepth 2 -maxdepth 2 -name SKILL.md 2>/dev/null || true) | wc -l | tr -d ' ')"
         if [ "$skills" -eq 0 ]; then
           echo "::error::apm ${APM_CLI_VERSION} deployed no skill for oddyssey ${VERSION} - the package is not usable without them."
