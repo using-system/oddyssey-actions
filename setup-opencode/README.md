@@ -62,9 +62,10 @@ makes is anonymous.
 - opencode's global config, `~/.config/opencode/opencode.json`,
   **replaced** by one that declares the endpoint as an
   `@ai-sdk/openai-compatible` provider named `openai-compatible` with
-  the model, and registers the package's MCP server as the package's
-  own manifest defines it (apm cannot register it at user scope for
-  opencode).
+  the model, registers the package's MCP server as the package's own
+  manifest defines it (apm cannot register it at user scope for
+  opencode), and turns opencode's auto-update off, so the version
+  installed is the version that runs.
 
 ## Example workflow
 
@@ -85,13 +86,14 @@ jobs:
       - uses: using-system/oddyssey-actions/setup-opencode@v1
         with:
           openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
-      - uses: using-system/oddyssey-actions/odd-status@v1
+      - uses: using-system/oddyssey-actions/odd-status@v1 # landing next, PR #11
 ```
 
 The step that runs a prompt is an action of this repository, never a
-hand-written headless line: [`odd-status`](../odd-status/README.md)
-launches opencode with the packaged `odd-status` command, scoped, and
-turns the answer into outputs a workflow can gate on.
+hand-written headless line: `odd-status` (landing next,
+using-system/oddyssey-actions#11) launches opencode with the packaged
+`odd-status` command, scoped, and turns the answer into outputs a
+workflow can gate on.
 
 ## What this grants
 

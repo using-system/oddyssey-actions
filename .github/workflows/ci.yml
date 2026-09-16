@@ -81,7 +81,8 @@ jobs:
           echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
           if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
           [ "$COPILOT_MODEL" = "$MODEL" ]
-          [ "$ODDYSSEY_CLI" = "copilot" ] && [ "$ODDYSSEY_MODEL" = "$MODEL" ]
+          [ "$ODDYSSEY_CLI" = "copilot" ]
+          [ "$ODDYSSEY_MODEL" = "$MODEL" ]
           # The nine skills oddyssey ships: deployed, and listed by the CLI
           # (read once into a file: the CLI dies of EPIPE when a grep
           # closes its pipe early).
@@ -98,6 +99,7 @@ jobs:
         if: >-
           matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        timeout-minutes: 10
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MODEL: ${{ steps.setup.outputs.model }}
@@ -140,12 +142,13 @@ jobs:
           PY
 
   setup-opencode:
-    # The action for real, on a bare checkout, same matrix. The smoke -
-    # opencode running the packaged odd-status command through the
-    # repository's OpenRouter key - spends that key: the whole job skips on
-    # a fork's PR, where the secret is withheld anyway (a skipped required
-    # check satisfies the ruleset).
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # The action for real, on a bare checkout, same matrix. On a fork's PR
+    # the secret is withheld: the setup runs with a placeholder key (no
+    # step of the setup spends it) so the four matrix cells still report
+    # their required checks - a job-level condition would collapse the
+    # matrix into one unexpanded check the ruleset never sees - and the
+    # smoke, which spends the key, is the one step gated on the PR's
+    # head repository.
     strategy:
       fail-fast: false
       matrix:
@@ -159,7 +162,7 @@ jobs:
         uses: ./setup-opencode
         with:
           oddyssey-version: ${{ matrix.oddyssey-version }}
-          openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          openai-api-key: ${{ secrets.OPENROUTER_API_KEY || 'fork-pr-placeholder-key' }}
       - name: The runner carries what the action says it installed
         env:
           REQUESTED: ${{ matrix.oddyssey-version }}
@@ -171,7 +174,8 @@ jobs:
           [ "$(opencode --version | tr -d '[:space:]')" = "$OPENCODE_VERSION" ]
           echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
           if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
-          [ "$ODDYSSEY_CLI" = "opencode" ] && [ "$ODDYSSEY_MODEL" = "$MODEL" ]
+          [ "$ODDYSSEY_CLI" = "opencode" ]
+          [ "$ODDYSSEY_MODEL" = "$MODEL" ]
           # The nine skills oddyssey ships, the commands, the config with
           # the provider and the MCP server, the key file for the user only.
           for skill in backend-configuration get-status k6-guides observability-cli-guides odd-memory otel-guides package-layout run-scenario setup-local-stack; do
@@ -185,13 +189,19 @@ jobs:
           # The checkout stays clean.
           test -z "$(git status --porcelain)"
       - name: Headless smoke - the packaged odd-status command on the bare checkout
-        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+        if: >-
+          matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
+          && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        timeout-minutes: 10
         env:
           MODEL: ${{ steps.setup.outputs.model }}
         run: |
           set -euo pipefail
           # opencode expands the command itself (--command); --auto is what
           # non-interactive mode requires; the events stream to a file.
+          # opencode has no --no-custom-instructions: the checkout's
+          # AGENTS.md reaches the run. Accepted here - this step runs on this
+          # repository's own branches only, whose authors have push access.
           opencode run --model "$MODEL" --format json --auto --title "ci smoke" \
             --command odd-status "" < /dev/null > "$RUNNER_TEMP/run.jsonl"
           # The run called the packaged skill and answered.

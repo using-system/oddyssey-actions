@@ -47,10 +47,16 @@ runs:
         REQUESTED: ${{ inputs.oddyssey-version }}
       run: |
         set -euo pipefail
-        # Resolved first: a wrong input costs nothing else. A full commit
-        # SHA is taken as is - the one immutable form; a tag is checked
-        # against the remote's release tags (plain vX.Y.Z), read with no
-        # API call and no token.
+        # Resolved first: a wrong input costs nothing else. The value
+        # reaches $GITHUB_OUTPUT: a case pattern sees it whole, so a second
+        # line cannot pass. A full commit SHA is taken as is - the one
+        # immutable form; a tag is checked against the remote's release
+        # tags (plain vX.Y.Z), read with no API call and no token.
+        case "$REQUESTED" in
+          ''|*[!A-Za-z0-9._-]*)
+            echo "::error::oddyssey-version must be a tag, a full commit SHA or latest, got '${REQUESTED}'."
+            exit 1 ;;
+        esac
         if printf '%s' "$REQUESTED" | grep -Eq '^[0-9a-f]{40}$'; then
           version="$REQUESTED"
         else

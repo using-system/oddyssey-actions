@@ -36,7 +36,7 @@ inputs:
     description: >-
       The API key of that endpoint - a secret. Written to a file under the
       runner's temporary directory that opencode's provider reads; never
-      exported to the environment, never printed.
+      written to GITHUB_ENV (no later step sees it), never printed.
     required: true
 
 outputs:
@@ -58,23 +58,32 @@ runs:
       env:
         MODEL: ${{ inputs.model }}
         BASE_URL: ${{ inputs.openai-base-url }}
-        API_KEY: ${{ inputs.openai-api-key }}
+        REQUESTED: ${{ inputs.oddyssey-version }}
       run: |
         set -euo pipefail
-        # Each input reaches a config file or $GITHUB_ENV: only plain
-        # values may pass. The key is checked for shape, never printed.
+        # Each input reaches a config file, $GITHUB_OUTPUT or $GITHUB_ENV:
+        # only plain, single-line values may pass (a case pattern sees the
+        # whole value; a grep sees it line by line). The key is checked in
+        # the step that writes it, the only one that holds it.
         case "$MODEL" in
           ''|*[!A-Za-z0-9._/:-]*)
             echo "::error::model must be a plain model id ([A-Za-z0-9._/:-]+), got '${MODEL}'."
             exit 1 ;;
         esac
+        case "$BASE_URL" in
+          ''|*[[:space:]]*)
+            echo "::error::openai-base-url must be a single https:// URL, got '${BASE_URL}'."
+            exit 1 ;;
+        esac
+        # single-line by the case above, so the line-wise grep is exact
         if ! printf '%s' "$BASE_URL" | grep -Eq '^https://[A-Za-z0-9._~:/?#@!$&+,;=%-]+$'; then
           echo "::error::openai-base-url must be an https:// URL made of URL characters, got '${BASE_URL}'."
           exit 1
         fi
-        case "$API_KEY" in
-          '') echo "::error::openai-api-key is empty."; exit 1 ;;
-          *[[:space:]]*) echo "::error::openai-api-key carries whitespace."; exit 1 ;;
+        case "$REQUESTED" in
+          ''|*[!A-Za-z0-9._-]*)
+            echo "::error::oddyssey-version must be a tag, a full commit SHA or latest, got '${REQUESTED}'."
+            exit 1 ;;
         esac
 
     - name: Resolve the oddyssey release
@@ -203,8 +212,12 @@ runs:
         PYYAML_VERSION: "6.0.3"
       run: |
         set -euo pipefail
+        case "$API_KEY" in
+          '') echo "::error::openai-api-key is empty."; exit 1 ;;
+          *[[:space:]]*) echo "::error::openai-api-key carries whitespace."; exit 1 ;;
+        esac
         # The key lives in a file only opencode's provider reads
-        # ({file:...}); it is never exported and never echoed.
+        # ({file:...}); it is never written to $GITHUB_ENV and never echoed.
         (umask 077 && printf '%s' "$API_KEY" > "$KEY_FILE")
         # opencode's global config: the endpoint as an OpenAI-compatible
         # provider with the model declared, and the package's MCP server
@@ -222,6 +235,8 @@ runs:
                 mcp[server["name"]] = {"type": "local", "command": [server["command"], *server.get("args", [])], "enabled": True}
         config = {
             "$schema": "https://opencode.ai/config.json",
+            # the version installed is the version that runs
+            "autoupdate": False,
             "provider": {
                 "openai-compatible": {
                     "npm": "@ai-sdk/openai-compatible",

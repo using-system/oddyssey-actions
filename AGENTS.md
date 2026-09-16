@@ -48,7 +48,8 @@ and never reads a secret itself. Placeholder values are obviously fake.
   `ODDYSSEY_MODEL` (the model in that CLI's own form): the contract an
   action that runs a prompt reads to pick its launch line.
 - **An action runs a prompt; a consumer never writes a headless line.**
-  The README of a setup action shows the prompt-running action as the
+  The README of a setup action shows the prompt-running action
+  (`odd-status`, landing with using-system/oddyssey-actions#11) as the
   next step, never a hand-written `copilot -p` or `opencode run`.
 - A composite action, its steps in bash. An action installs and prints
   what it installed (the CLI version, the package version resolved,
