@@ -29,7 +29,7 @@ run an oddyssey prompt:
 
 The later steps also receive `ODDYSSEY_CLI=opencode` and
 `ODDYSSEY_MODEL=<the model output>` in their environment: the
-[`odd-status`](../odd-status/README.md) action reads them to know which
+`odd-status` action (landing next, using-system/oddyssey-actions#11) reads them to know which
 CLI to launch and how. The step's log and the run's summary state the
 versions, the model and the endpoint.
 
