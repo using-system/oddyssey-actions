@@ -6,8 +6,6 @@ installed, and turns its verdict into outputs a workflow can gate on:
 ```yaml
 - uses: using-system/oddyssey-actions/setup-copilot@v1
 - uses: using-system/oddyssey-actions/odd-status@v1
-  env:
-    GITHUB_TOKEN: ${{ github.token }}
   with:
     fail-on: error
 ```
@@ -18,6 +16,7 @@ installed, and turns its verdict into outputs a workflow can gate on:
 | --- | --- | --- | --- |
 | `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
 | `fail-on` | no | `none` | Fail the step when the judged status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
+| `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode run never receives it. The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user. Passed as given. |
 
 ## Outputs
 
@@ -44,11 +43,23 @@ packaged `odd-status` command on that model, scoped as the setup's README
 documents:
 
 - **Copilot** ([`setup-copilot`](../setup-copilot/README.md)): the
-  step needs the workflow's token in its environment
-  (`GITHUB_TOKEN: ${{ github.token }}`) under the job permission
-  `copilot-requests: write`; the launch line grants a shell, file access
-  to the skills only, no instructions from the checkout, no built-in
-  GitHub MCP server, the token stripped from the shells the run opens.
+  action sets the `token` input as `GITHUB_TOKEN` on its Copilot launch
+  step, and only there; the job grants `copilot-requests: write` for
+  the default, the workflow's own token, and that permission is the
+  only thing the caller sets. The launch line grants a shell, file
+  access to the skills only, no instructions from the checkout, no
+  built-in GitHub MCP server, the token stripped from the shells the
+  run opens. What the CLI accepts is GitHub's: its Actions
+  documentation names the workflow's `GITHUB_TOKEN` under
+  `copilot-requests: write`, and the CLI's own help says only that the
+  variable holds "an authentication token"; the action passes the
+  input as given and checks nothing about it. A GitHub App
+  installation token is not documented as carrying a Copilot
+  entitlement and was not tried. The CLI reads
+  `COPILOT_GITHUB_TOKEN`, then `GH_TOKEN`, then
+  `GITHUB_TOKEN` (its `copilot help environment`), so either of the
+  first two in the step's environment would replace the input: the
+  step fails when it finds one and names the `token` input instead.
 - **opencode** ([`setup-opencode`](../setup-opencode/README.md)):
   nothing beyond the setup; the launch line auto-approves the tools
   (non-interactive mode requires it), and the checkout's instruction
@@ -84,8 +95,6 @@ jobs:
       - uses: using-system/oddyssey-actions/setup-copilot@v1
       - id: status
         uses: using-system/oddyssey-actions/odd-status@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
         with:
           prompt: the checkout service
           fail-on: error
@@ -95,8 +104,9 @@ jobs:
 ```
 
 With opencode, replace the setup step by `setup-opencode` with its
-`openai-api-key`, drop the `GITHUB_TOKEN` line and the
-`copilot-requests` permission.
+`openai-api-key` and drop the `copilot-requests` permission: the
+opencode step receives no token. To bill the Copilot run to a user,
+add `token: ${{ secrets.COPILOT_USER_TOKEN }}` under `with:`.
 
 ## What this grants
 

@@ -31,13 +31,16 @@ same three values.
 ## Auth
 
 The step that runs `copilot` authenticates with the workflow's own
-token: the job grants `copilot-requests: write` and the step sets
-`GITHUB_TOKEN: ${{ github.token }}` (the CLI's usage is then billed to
+token: the job grants `copilot-requests: write`, and the
+[`odd-status`](../odd-status/README.md) action reads `github.token`
+itself on its Copilot launch step (the CLI's usage is then billed to
 the repository's owner - an organization needs its "Copilot CLI" policy
-on). A personal token in the CLI's own variable, `COPILOT_GITHUB_TOKEN`,
-is the alternative when the run must be billed to a user. The action
-itself reads no token at all: every download it makes is anonymous, and
-it validates nothing beyond the CLI answering.
+on). Nothing is set on the caller's step. A user token passed as that
+action's `token` input is the alternative when the run must be billed
+to a user; a `COPILOT_GITHUB_TOKEN` or `GH_TOKEN` in the environment
+fails that step instead, since the CLI would prefer it over the input.
+This action itself reads no token at all: every download it makes is
+anonymous, and it validates nothing beyond the CLI answering.
 
 ## What lands where
 
@@ -79,8 +82,6 @@ jobs:
         with:
           model: claude-sonnet-5 # optional; gpt-5.6-luna without it
       - uses: using-system/oddyssey-actions/odd-status@v1
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
 ```
 
 The step that runs a prompt is an action of this repository, never a

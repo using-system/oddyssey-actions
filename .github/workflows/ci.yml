@@ -64,11 +64,11 @@ jobs:
   setup-copilot:
     # The action for real, on a bare checkout: the newest release and a
     # pinned one, on both runner families. The smoke is the odd-status
-    # action - the consumer's own next step - with the workflow's token
-    # (copilot-requests: write), on one cell only and never on a fork's
-    # PR (the permission is not granted there, and the request is billed
-    # to this repository); the token reaches that one step, never the
-    # install.
+    # action - the consumer's own next step - on the workflow's token,
+    # which the action reads itself on its Copilot step (copilot-requests:
+    # write on this job), on one cell only and never on a fork's PR (the
+    # permission is not granted there, and the request is billed to this
+    # repository); the token reaches that one step, never the install.
     strategy:
       fail-fast: false
       matrix:
@@ -119,8 +119,6 @@ jobs:
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         timeout-minutes: 10
         uses: ./odd-status
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
       - name: The verdict has the shape a workflow gates on
         if: steps.status.outcome == 'success'
         env:

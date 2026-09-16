@@ -32,8 +32,10 @@ of copying it verbatim.
 
 Never write a token, a credential or a real endpoint into anything
 committed or published: an action, a workflow, a README, an issue, a PR.
-An action names the variable the caller sets (`COPILOT_GITHUB_TOKEN`)
-and never reads a secret itself. Placeholder values are obviously fake.
+A setup action reads no secret; the prompt-running action takes the
+ambient `github.token`, or the token its `token` input names, and sets
+it on the one step of the one CLI that needs it. Placeholder values are
+obviously fake.
 
 ## What an action is here
 
@@ -62,8 +64,11 @@ and never reads a secret itself. Placeholder values are obviously fake.
   what it installed (the CLI version, the package version resolved,
   what was deployed) so the workflow log states what ran; it validates
   nothing beyond the CLI answering. The token is the launch step's:
-  the workflow's own `GITHUB_TOKEN` under `copilot-requests: write`,
-  or a user token in the CLI's variable; the action reads neither.
+  the prompt-running action sets it as `GITHUB_TOKEN` on its Copilot
+  step and nowhere else - the workflow's own `github.token` by default,
+  under `copilot-requests: write`, or the one its `token` input names
+  (a user token when the run must be billed to a user); a setup action
+  reads no token, and the opencode step receives none.
 - The apm-cli pin an action installs the package with is oddyssey's
   (its `CONTRIBUTING.md`); bump it here when oddyssey bumps it, never
   ahead of it.
@@ -103,8 +108,13 @@ and never reads a secret itself. Placeholder values are obviously fake.
   CONTRIBUTING.md quotes.
 - **No token reaches code the repository does not control.** A step
   that downloads or runs a third party's code carries no `GITHUB_TOKEN`
-  unless that code provably needs one, and the PR says for what. An
-  action never reads a caller's secret.
+  unless that code provably needs one, and the PR says for what. A
+  setup action never reads a caller's secret; the prompt-running action
+  takes the ambient `github.token`, or the one its `token` input names,
+  for the CLI that needs it, on that CLI's step only - the launch is
+  one step per CLI so the other CLI's step never sees it - and fails
+  when a `COPILOT_GITHUB_TOKEN` or `GH_TOKEN` in the environment would
+  make the CLI prefer another token over the input.
 - **An expression never enters a `run:` block**; it passes through
   `env:`. Every input that reaches a shell, `$GITHUB_ENV` or
   `$GITHUB_OUTPUT` is validated against an explicit pattern first: a
