@@ -29,7 +29,7 @@ run an oddyssey prompt:
 
 The later steps also receive `ODDYSSEY_CLI=opencode` and
 `ODDYSSEY_MODEL=<the model output>` in their environment: the
-`odd-status` action (landing next, using-system/oddyssey-actions#11) reads them to know which
+[`odd-status`](../odd-status/README.md) action reads them to know which
 CLI to launch and how. The step's log and the run's summary state the
 versions, the model and the endpoint.
 
@@ -88,14 +88,13 @@ jobs:
       - uses: using-system/oddyssey-actions/setup-opencode@v1
         with:
           openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
-      - uses: using-system/oddyssey-actions/odd-status@v1 # landing next, PR #11
+      - uses: using-system/oddyssey-actions/odd-status@v1
 ```
 
 The step that runs a prompt is an action of this repository, never a
-hand-written headless line: `odd-status` (landing next,
-using-system/oddyssey-actions#11) launches opencode with the packaged
-`odd-status` command, scoped, and turns the answer into outputs a
-workflow can gate on.
+hand-written headless line: [`odd-status`](../odd-status/README.md)
+launches opencode with the packaged `odd-status` command, scoped, and
+turns the answer into outputs a workflow can gate on.
 
 ## What this grants
 

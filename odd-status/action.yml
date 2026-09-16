@@ -18,8 +18,9 @@ inputs:
   fail-on:
     description: >-
       Fail the step when the judged status reaches this level: `warning`
-      (warning or error fail), `error` (error fails), or `none` (never;
-      the outputs carry the verdict).
+      (warning or error fail), `error` (error fails), or `none` (the
+      outputs carry the verdict; the step still fails when the run
+      produced no answer).
     required: false
     default: none
 
@@ -66,6 +67,11 @@ runs:
         set -euo pipefail
         case "$FAIL_ON" in none|warning|error) ;; *)
           echo "::error::fail-on must be none, warning or error, got '${FAIL_ON}'."; exit 1 ;;
+        esac
+        # The prompt is the command's positional argument: one starting
+        # with a dash would be read as a flag of the CLI.
+        case "$PROMPT" in -*)
+          echo "::error::prompt must not start with a dash, got '${PROMPT}'."; exit 1 ;;
         esac
         if [ -z "${ODDYSSEY_CLI:-}" ] || [ -z "${ODDYSSEY_MODEL:-}" ]; then
           echo "::error::ODDYSSEY_CLI and ODDYSSEY_MODEL are not set - run a setup action (setup-copilot, setup-opencode) earlier in the job."

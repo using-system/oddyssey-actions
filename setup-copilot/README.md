@@ -11,7 +11,7 @@ so a later step can run an oddyssey prompt headlessly:
 
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
-| `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL`, which `--model` on the launch line overrides; never written to a config file. |
+| `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL` (which `--model` on a launch line overrides) and as `ODDYSSEY_MODEL`; never written to a config file. |
 | `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. |
 
 ## Outputs

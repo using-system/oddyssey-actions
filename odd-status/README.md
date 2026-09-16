@@ -16,8 +16,8 @@ installed, and turns its verdict into outputs a workflow can gate on:
 
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
-| `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop. |
-| `fail-on` | no | `none` | Fail the step when the judged status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (never; the outputs carry the verdict). |
+| `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
+| `fail-on` | no | `none` | Fail the step when the judged status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
 
 ## Outputs
 
@@ -54,6 +54,8 @@ documents:
   (non-interactive mode requires it).
 
 Without a setup action earlier in the job, the step fails and says so.
+The action needs `python3` on the runner's `PATH` (the ubuntu and macOS
+runners carry one).
 
 ## Example workflow
 

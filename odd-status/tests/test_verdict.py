@@ -57,6 +57,22 @@ def test_parse_verdict_reads_the_block_and_normalises_todo():
     ]
 
 
+def test_fence_variants_and_flattening():
+    for fence in ("```JSON", "```json "):
+        block = fence + '\r\n{"status": "ok", "summary": "a\\nb  c"}\r\n```'
+        parsed, ok = verdict.parse_verdict(block)
+        assert ok and parsed["status"] == "ok" and parsed["summary"] == "a b c"
+    nested = '````markdown\n```json\n{"status": "ok"}\n```\n````\n'
+    assert verdict.parse_verdict(nested)[0]["status"] == "ok"
+
+
+def test_non_string_content_is_ignored():
+    stream = [{"type": "assistant.message", "data": {"content": [{"type": "text"}]}}]
+    assert verdict.final_answer("copilot", stream) == ""
+    stream = [{"type": "text", "part": {"messageID": "m", "text": {"x": 1}}}]
+    assert verdict.final_answer("opencode", stream) == ""
+
+
 def test_parse_verdict_takes_the_last_valid_block():
     answer = '```json\n{"status": "ok"}\n```\ntext\n```json\n{"status": "error", "todo": []}\n```\n'
     parsed, _ = verdict.parse_verdict(answer)
@@ -126,6 +142,27 @@ def test_outputs_and_gate(tmp_path):
 @pytest.mark.parametrize("fail_on,code", [("none", 0), ("warning", 1), ("error", 0)])
 def test_fail_on_levels(tmp_path, fail_on, code):
     assert run(tmp_path, "opencode", opencode_stream(ANSWER), fail_on)[0] == code
+
+
+ERROR_ANSWER = (
+    '```json\n{"status": "error", "summary": "verification failed", "todo": []}\n```\n'
+)
+
+
+@pytest.mark.parametrize(
+    "answer,fail_on,code",
+    [
+        (ERROR_ANSWER, "error", 1),
+        (ERROR_ANSWER, "warning", 1),
+        (ERROR_ANSWER, "none", 0),
+        ("an answer with no block", "error", 1),
+        ("an answer with no block", "none", 0),
+    ],
+)
+def test_error_verdicts_gate(tmp_path, answer, fail_on, code):
+    rc, _out, outputs = run(tmp_path, "copilot", copilot_stream(answer), fail_on)
+    assert rc == code
+    assert outputs["status"] == "error"
 
 
 def test_no_answer_fails_whatever_fail_on(tmp_path):

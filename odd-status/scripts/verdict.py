@@ -24,7 +24,7 @@ import uuid
 from pathlib import Path
 
 LEVELS = {"ok": 0, "warning": 1, "error": 2}
-FENCE = re.compile(r"```json\s*\n(.*?)\n\s*```", re.DOTALL)
+FENCE = re.compile(r"```json\s*\r?\n(.*?)\r?\n\s*```", re.DOTALL | re.IGNORECASE)
 
 
 def events(path: Path) -> list[dict]:
@@ -52,19 +52,34 @@ def final_answer(cli: str, stream: list[dict]) -> str:
         answer = ""
         for event in stream:
             data = event.get("data") or {}
-            if event.get("type") == "assistant.message" and data.get("content"):
-                answer = data["content"]
+            content = (
+                data.get("content")
+                if event.get("type") == "assistant.message"
+                else None
+            )
+            if isinstance(content, str) and content:
+                answer = content
         return answer
     # opencode: the text parts of the last message that carried any
     last_message, parts = None, []
     for event in stream:
         part = event.get("part") or {}
-        if event.get("type") != "text" or not part.get("text"):
+        if (
+            event.get("type") != "text"
+            or not isinstance(part.get("text"), str)
+            or not part["text"]
+        ):
             continue
         if part.get("messageID") != last_message:
             last_message, parts = part.get("messageID"), []
         parts.append(part["text"])
     return "".join(parts)
+
+
+def flat(text: str) -> str:
+    """One line: the model's text reaches stdout, a table cell and an
+    output, where a newline is a workflow command or a row break."""
+    return " ".join(text.split())
 
 
 def parse_verdict(answer: str) -> tuple[dict, bool]:
@@ -84,14 +99,17 @@ def parse_verdict(answer: str) -> tuple[dict, bool]:
         for item in todo:
             if isinstance(item, dict) and item.get("action"):
                 clean.append(
-                    {"action": str(item["action"]), "why": str(item.get("why", ""))}
+                    {
+                        "action": flat(str(item["action"])),
+                        "why": flat(str(item.get("why", ""))),
+                    }
                 )
             elif isinstance(item, str) and item:
-                clean.append({"action": item, "why": ""})
+                clean.append({"action": flat(item), "why": ""})
         summary = data.get("summary")
         return {
             "status": data["status"],
-            "summary": str(summary) if summary else "",
+            "summary": flat(str(summary)) if summary else "",
             "todo": clean,
         }, True
     return {
