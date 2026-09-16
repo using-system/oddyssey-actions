@@ -1,9 +1,10 @@
 # oddyssey-actions
 
 GitHub Actions for [oddyssey](https://github.com/using-system/oddyssey),
-Observability-Driven Development for coding agents. Each action prepares
-a runner so the oddyssey prompts can run headlessly through a coding CLI
-inside a workflow.
+Observability-Driven Development for coding agents: they bring the ODD
+loop into your workflows. A setup action installs a coding CLI and the
+oddyssey package on the runner; an action per oddyssey capability then
+runs it there and turns the answer into outputs a workflow can gate on.
 
 ## Actions
 
