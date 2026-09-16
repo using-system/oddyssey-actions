@@ -167,6 +167,10 @@ A PR pushed red costs a review round-trip; run the checks first.
 Push a tag `vX.Y.Z`: the release workflow creates the GitHub release
 with notes generated from the merged PR titles and moves the `vX`
 floating major tag to it. Consumers pin `@vX`, an exact tag or a SHA.
+The `/publish` command (`.claude/commands/publish.md`) drives it from
+a Claude Code session: preflight on `main`, the bump picked from the
+merged PR titles, the tag pushed on confirmation, the run watched to
+completion, then each shipped issue labelled `release: vX.Y.Z`.
 
 ## Title and label every issue
 
