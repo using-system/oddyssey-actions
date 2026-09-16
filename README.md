@@ -12,15 +12,15 @@ runs it there and turns the answer into outputs a workflow can gate on.
 | --- | --- |
 | [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI (pinned, checksum-verified) and the oddyssey package on the runner, the model (default `gpt-5.6-luna`) and the package version (default `latest`; a tag or a commit SHA) as its only inputs. |
 | [`setup-opencode`](setup-opencode/README.md) | Installs opencode (pinned, checksum-verified) and the oddyssey package on the runner, an OpenAI-compatible endpoint as its provider (default OpenRouter, the key as a secret input), the same model and package version inputs. |
-| [`odd-status`](odd-status/README.md) | Runs the packaged `/odd-status` through the CLI a setup action installed and turns its verdict (`ok`, `warning`, `error`, the next actions) into outputs; `fail-on` makes it a gate; the Copilot run takes the workflow's token itself (`token` overrides it). |
+| [`setup-claude`](setup-claude/README.md) | Installs Claude Code (pinned, checksum-verified) and the oddyssey package on the runner, an Anthropic API key or a Claude OAuth token as its credential (one of the two, as a secret input), the same model and package version inputs. |
+| [`odd-status`](odd-status/README.md) | Runs the packaged `/odd-status` through the CLI a setup action installed and turns its verdict (`ok`, `warning`, `error`, the next actions) into outputs; `fail-on` makes it a gate; the Copilot run takes the workflow's token itself (`token` overrides it), the Claude Code run the credential its setup kept. |
 
 **One setup action per CLI.** Each CLI installs, authenticates, takes its
 model and loads the package differently, so a `setup-<cli>` action owns
 one CLI end to end. There is never one action with a `cli` input whose
 other inputs mean something else per value. Every setup action exports
 `ODDYSSEY_CLI` and `ODDYSSEY_MODEL` to the later steps, which is how an
-action that runs a prompt knows which CLI to launch and how. A
-`setup-claude` gets its own directory when a consumer needs it.
+action that runs a prompt knows which CLI to launch and how.
 
 ## Using an action
 
