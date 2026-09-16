@@ -33,13 +33,16 @@ answer with one JSON verdict - `error` when something demands a fix
 before the next step, `warning` when something is due or degraded but
 not blocking, `ok` when nothing is due - and parses that block. What
 the memory records as settled is never a warning: a telemetry gap the
-report itself marks by design, informational or the store's; a finding
-the decisions ledger declined; a "Judgment needed" item no memory write
-can close (a ruling outside a chain, a classification row for an entry
-that no longer exists, a section cut by the screen's cap). Those are
-facts the summary may name; a deferral the maintainer can settle with
-a command is a todo. A missing or malformed block is an `error` whose
-summary says so; a run with no answer fails whatever `fail-on` says.
+report itself marks by design, out of the spec's scope, informational
+or the store's; a finding the decisions ledger declined (any verdict
+other than `open`); a "Judgment needed" item the rules cannot settle
+from the memory alone (a ruling outside a chain, a classification row
+for an entry that no longer exists, a section cut by the screen's cap).
+The summary names those as facts; a deferral the maintainer can settle
+with a command is a todo without raising the status - a gap the report
+still calls a gap stays a warning. A missing or malformed block is an
+`error` whose summary says so; a run with no answer fails whatever
+`fail-on` says.
 
 ## Which CLI
 
