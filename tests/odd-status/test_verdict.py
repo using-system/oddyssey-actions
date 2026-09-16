@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "verdict.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "odd-status" / "scripts" / "verdict.py"
 sys.path.insert(0, str(SCRIPT.parent))
 import verdict
 
