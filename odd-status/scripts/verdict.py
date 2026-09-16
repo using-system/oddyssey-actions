@@ -34,7 +34,7 @@ from pathlib import Path
 LEVELS = {"ok": 0, "warning": 1, "error": 2}
 SOURCE_NOTE = {
     "rendering": "The status and the todo are the package's own verdict (the rendering's verdict and todo lines); the summary is the model's.",
-    "model": "The rendering carries no verdict line (a package that predates it): the status and the todo are the model's judgement.",
+    "model": "The answer carries no verdict line: the status and the todo are the model's judgement.",
 }
 FENCE = re.compile(r"```json\s*\r?\n(.*?)\r?\n\s*```", re.DOTALL | re.IGNORECASE)
 # The rendering's two lines, as get-status prints them (`- verdict:
@@ -119,32 +119,34 @@ def flat(text: str) -> str:
 
 def rendered_verdict(answer: str) -> dict | None:
     """The status and the todo the package's rendering opens with, or None
-    when the answer carries no verdict line (a package that predates it)."""
+    when the answer carries no verdict line (a package that predates it).
+    The first verdict line is the rendering's: a model restating one at
+    the end never overrides it."""
     status = None
     for match in VERDICT_LINE.finditer(answer):
         rest = match.group("rest").strip("* ").lower()
         head = re.split(r"[\s*:]", rest, maxsplit=1)[0]
         if head in LEVELS:
             status = head
+            break
     if status is None:
         return None
     todo = []
-    for match in TODO_LINE.finditer(answer):
-        rest = flat(match.group("rest").strip("* "))
-        todo = []
-        if rest and rest.lower() != "nothing to do":
-            for item in rest.split(" \u00b7 "):
-                # `lineage: action - evidence`: the dash splits the action
-                # from its evidence; an item with no dash is all action.
-                parts = DASH.split(item, maxsplit=1)
-                action = parts[0].strip()
-                if action:
-                    todo.append(
-                        {
-                            "action": action,
-                            "why": parts[1].strip() if len(parts) > 1 else "",
-                        }
-                    )
+    match = TODO_LINE.search(answer, match.end())
+    rest = flat(match.group("rest").strip("* ")).rstrip(".") if match else ""
+    if rest and rest.lower() != "nothing to do":
+        for item in rest.split(" \u00b7 "):
+            # `lineage: action - evidence`: the dash splits the action
+            # from its evidence; an item with no dash is all action.
+            parts = DASH.split(item, maxsplit=1)
+            action = parts[0].strip()
+            if action:
+                todo.append(
+                    {
+                        "action": action,
+                        "why": parts[1].strip() if len(parts) > 1 else "",
+                    }
+                )
     return {"status": status, "todo": todo}
 
 

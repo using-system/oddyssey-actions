@@ -28,7 +28,7 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     # Issue #31: the status and the todo are the rendering's own lines; the
     # model's judgement, on the loop state's Action column (issues #24,
     # #26), is the fallback for a package that predates them.
-    assert "copy the rendering's verdict and todo lines" in arguments
+    assert "The status copies the rendering's verdict line." in arguments
     assert "When the rendering has no verdict line" in arguments
     assert "ok when every lineage's action is loop can rest" in arguments
     assert "error when a verification failed" in arguments

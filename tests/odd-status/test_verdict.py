@@ -166,6 +166,29 @@ def test_prose_naming_a_verdict_is_not_the_rendering_s_line():
     assert verdict.rendered_verdict("- checkout: verdict: ok\n") is None
 
 
+def test_the_first_verdict_line_is_the_rendering_s():
+    answer = (
+        "- verdict: error - a finding regressed\n- todo: rule on F1 - regressed.\n\n"
+        "My reading:\n- verdict: ok - all good\n- todo: nothing to do\n"
+    )
+    assert verdict.rendered_verdict(answer) == {
+        "status": "error",
+        "todo": [{"action": "rule on F1", "why": "regressed"}],
+    }
+
+
+def test_the_action_declares_every_output_the_script_writes(tmp_path):
+    import yaml
+
+    declared = yaml.safe_load((SCRIPT.parents[1] / "action.yml").read_text())["outputs"]
+    out = tmp_path / "out"
+    verdict.write_outputs(out, verdict.parse_verdict(RENDERED)[0], "report")
+    written = {
+        line.partition("<<")[0] for line in out.read_text().splitlines() if "<<" in line
+    }
+    assert written == set(declared)
+
+
 def test_a_rendering_without_a_block_keeps_its_verdict():
     answer = "# ODD loop status\n\n- verdict: error - a finding regressed\n- todo: rule on F2 - regressed\n"
     parsed, well_formed = verdict.parse_verdict(answer)
@@ -220,7 +243,7 @@ def test_outputs_and_gate(tmp_path):
     assert "odd-status: warning" in out and "verdict from the model" in out
     summary = (tmp_path / "summary.md").read_text()
     assert summary.startswith("### odd-status: ⚠️ warning")
-    assert "a package that predates it" in summary
+    assert "carries no verdict line" in summary
 
 
 def test_outputs_carry_the_rendering_s_verdict(tmp_path):
