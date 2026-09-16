@@ -30,6 +30,9 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     assert "The status follows the Action column of the loop state table" in arguments
     assert "ok when every lineage's action is loop can rest" in arguments
     assert "warning when a lineage's action is verification due" in arguments
+    assert "when there is no loop state table at all" in arguments
+    assert "Telemetry gaps, declined findings" in arguments
+    assert "error when a verification failed" in arguments
     assert "never let them set the status" in arguments
     assert arguments.endswith("is empty when there is nothing to do.\n")
     assert (
