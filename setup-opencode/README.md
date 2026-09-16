@@ -38,9 +38,11 @@ versions, the model and the endpoint.
 The key is the caller's, passed as the `openai-api-key` input from a
 secret. The action writes it to a file under the runner's temporary
 directory, readable by the runner's user only, that opencode's provider
-reads (`{file:...}`); it is never exported to the environment and never
-printed. The action itself reads no other token: every download it
-makes is anonymous.
+reads (`{file:...}`); it is never written to `GITHUB_ENV`, so no later
+step of the job sees it, and never printed. The file and the replaced
+global config live for the job: a hosted runner discards them with the
+workspace, a self-hosted one keeps them. The action itself reads no
+other token: every download it makes is anonymous.
 
 ## What lands where
 
