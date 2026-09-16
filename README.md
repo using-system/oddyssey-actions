@@ -7,8 +7,9 @@ inside a workflow.
 
 ## Actions
 
-No action is published yet. The first one, `setup-copilot`, is specified
-in [oddyssey#122](https://github.com/using-system/oddyssey/issues/122).
+| Action | What it does |
+| --- | --- |
+| [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI and the oddyssey package on the runner, the model and the package version as its only inputs. |
 
 **One setup action per CLI.** Each CLI installs, authenticates, takes its
 model and loads the package differently, so a `setup-<cli>` action owns
@@ -38,7 +39,8 @@ titles (`feat:` a minor, `fix:` a patch).
 ## Contributing
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the workflow, [AGENTS.md](AGENTS.md)
-the conventions a coding agent reads. Security reports go through
+the conventions a coding agent reads, and the
+[Code of Conduct](CODE_OF_CONDUCT.md) applies. Security reports go through
 [private reporting](https://github.com/using-system/oddyssey-actions/security/advisories/new),
 never a public issue ([SECURITY.md](SECURITY.md)).
 
