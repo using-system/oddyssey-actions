@@ -22,32 +22,26 @@ installed, and turns its verdict into outputs a workflow can gate on:
 
 | Output | What it is |
 | --- | --- |
-| `status` | The model's judgement of the loop's state: `ok`, `warning` or `error`. |
-| `summary` | One sentence on that judgement. |
-| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`. |
+| `status` | The loop's verdict, `ok`, `warning` or `error`: the package's own, as its `get-status` rules compute it (the verdict line its rendering opens with); the model's judgement when the package predates that line. |
+| `summary` | One sentence on that verdict, the model's. |
+| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`: the rendering's todo line, or the model's when the package predates it. |
+| `source` | Where the status and the todo come from: `rendering` or `model`. |
 | `report` | The run's whole answer, the status as the packaged command renders it. |
 
-The run's summary carries the verdict, the todo as a table and the
-report. The judgement is the model's, anchored on the loop's own rule:
-the action asks it to end its answer with one JSON verdict whose status
-follows the **Action** column of the loop state table - `ok` when every
-lineage's action is `loop can rest` (or `plan verified`) and the
-`Regr.` column is 0, `warning` when a lineage's action is
-`verification due`, `observation overdue`, `fix pending` or `plan
-awaits verification`, when there is no loop state table at all (the
-loop has not started, or nothing matches the prompt), or when a
-"Judgment needed" item - or a `judgment needed` lineage - is one the
-maintainer can settle with a command, `error` when a verification
-failed, a finding regressed, a report could not be read or the memory
-invariant reports a violation (a report failing the contract; a skipped ledger row,
-including one naming an entry that no longer exists, is a fact it
-reports, never a violation) - and parses that block. Telemetry gaps,
-declined findings, "Judgment needed" items (or lineages) the rules
-cannot settle from the memory, and the decisions a report leaves to
-the spec are facts the summary names and the todo may list; they never
-set the status. A missing or
-malformed block is an `error` whose summary says so; a run with no
-answer fails whatever `fail-on` says.
+The run's summary carries the verdict, where it comes from, the todo as
+a table and the report. The intelligence is the package's: `get-status`
+opens its rendering with `- verdict: <status> - <reasons>` and
+`- todo: <the next actions>`, computed by its rules from every stored
+report, ruling and ledger row, and the action reads those two lines
+from the answer; the model writes the one-sentence summary, in the JSON
+block the action asks it to end with. A package that predates the
+verdict line gets the model's judgement instead, anchored on the same
+rule - the **Action** column of the loop state table: `ok` when every
+lineage's action is `loop can rest` (or `plan verified`) and the `Regr.`
+column is 0, `error` when a verification failed, a finding regressed or
+a report could not be read, `warning` otherwise - and the summary says
+so. A missing or malformed block is then an `error` whose summary says
+so; a run with no answer fails whatever `fail-on` says.
 
 ## Which CLI
 
