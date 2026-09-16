@@ -15,7 +15,7 @@ installed, and turns its verdict into outputs a workflow can gate on:
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
 | `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
-| `fail-on` | no | `none` | Fail the step when the judged status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
+| `fail-on` | no | `none` | Fail the step when the status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
 | `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode and Claude Code runs never receive it. The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user. Passed as given. |
 
 ## Outputs
