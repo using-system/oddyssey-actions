@@ -24,7 +24,15 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
         "the checkout service\n\nThen end your answer with exactly one fenced json code block"
     )
     assert '{"status": "ok" | "warning" | "error"' in arguments
-    assert arguments.endswith("is empty when nothing is due.\n")
+    # Issue #24: what the memory records as settled is a fact, not a warning.
+    assert "never on what the memory records as settled" in arguments
+    assert "a telemetry gap the report records as by design" in arguments
+    assert "a finding the decisions ledger declined" in arguments
+    assert "a Judgment needed item the rules cannot settle" in arguments
+    # and the due case still warns: a gap the report still calls a gap
+    assert "a telemetry gap the report still calls a gap" in arguments
+    assert "a todo without raising the status" in arguments
+    assert arguments.endswith("is empty when there is nothing to do.\n")
     assert (
         "odd-status through copilot on gpt-5.6-luna - the checkout service"
         in result.stdout
