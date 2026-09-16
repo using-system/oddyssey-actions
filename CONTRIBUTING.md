@@ -17,7 +17,7 @@ opens, or comments under your name.**
 
 | Where | What |
 | --- | --- |
-| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`. |
+| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`; the `action.yml` is the wiring, every step's logic is a script under `<action>/scripts/`. |
 | `.github/workflows/ci.yml` | actionlint on the workflows, shellcheck on the actions' bash steps, ruff and pytest on the scripts the actions ship, and one job per action that runs it for real on a bare checkout. |
 | `.github/workflows/release.yml` | A `vX.Y.Z` tag creates the GitHub release and moves the `vX` floating major tag. |
 
@@ -27,13 +27,13 @@ opens, or comments under your name.**
 # The workflows, at the version CI pins (actionlint parses workflows only)
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'
 
-# The actions' bash steps, one shellcheck run per step (shellcheck on PATH,
-# or --shellcheck <binary>; the actionlint image carries one)
-uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py
+# The actions' scripts (shellcheck on PATH; the actionlint image carries one:
+# docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 ...)
+shellcheck --severity=style ./*/scripts/*.sh
 
 # The scripts the actions ship, with their tests
-uvx ruff@0.16.4 check ./scripts ./*/scripts ./*/tests
-uvx ruff@0.16.4 format --check ./scripts ./*/scripts ./*/tests
+uvx ruff@0.16.4 check ./*/scripts ./*/tests
+uvx ruff@0.16.4 format --check ./*/scripts ./*/tests
 uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests
 ```
 

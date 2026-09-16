@@ -60,7 +60,16 @@ obviously fake.
   versions the `ci` workflow pins; the action calls the script through
   `${{ github.action_path }}`, and the script's docstring states its
   whole flag surface.
-- A composite action, its steps in bash. An action installs and prints
+- **A composite action is its `action.yml` as the wiring over
+  `<action>/scripts/`.** Every step's logic is one script there, bash
+  with `set -euo pipefail` (Python where the work is Python, run
+  through `uv` at a pinned pyyaml), whose header states what it reads
+  from its environment and what it writes (`GITHUB_OUTPUT`,
+  `GITHUB_ENV`, `GITHUB_PATH`, the summary, a file); the step passes
+  the inputs and the pins as `env:` and runs `"$SCRIPT"`, `SCRIPT`
+  being `${{ github.action_path }}/scripts/<name>`. A `run:` block
+  holds no logic: a script runs the same from a terminal, from a test
+  and from the runner. An action installs and prints
   what it installed (the CLI version, the package version resolved,
   what was deployed) so the workflow log states what ran; it validates
   nothing beyond the CLI answering. The token is the launch step's:
@@ -156,12 +165,12 @@ obviously fake.
   workflow pins:
   `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'`
   (the ignore: actionlint 1.7.12 predates the `copilot-requests` scope)
-  It parses workflows only: the actions' bash steps go through
-  `uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py`
-  (shellcheck on PATH, or `--shellcheck <binary>`), the same pass CI
-  runs.
+  It parses workflows only: the actions' scripts go through
+  `shellcheck --severity=style ./*/scripts/*.sh` (shellcheck on PATH; the
+  actionlint image carries one: `docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 --severity=style ./*/scripts/*.sh`),
+  the same pass CI runs.
 - The scripts the actions ship, with their tests:
-  `uvx ruff@0.16.4 check ./scripts ./*/scripts ./*/tests`, the same with
+  `uvx ruff@0.16.4 check ./*/scripts ./*/tests`, the same with
   `format --check`, and
   `uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests`.
 - Each action's CI job runs the action for real on a bare checkout,
