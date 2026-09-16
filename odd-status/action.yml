@@ -71,14 +71,14 @@ runs:
         # The prompt is the command's positional argument: one starting
         # with a dash would be read as a flag of the CLI.
         case "$PROMPT" in -*)
-          echo "::error::prompt must not start with a dash, got '${PROMPT}'."; exit 1 ;;
+          echo "::error::prompt must not start with a dash."; exit 1 ;;
         esac
         if [ -z "${ODDYSSEY_CLI:-}" ] || [ -z "${ODDYSSEY_MODEL:-}" ]; then
           echo "::error::ODDYSSEY_CLI and ODDYSSEY_MODEL are not set - run a setup action (setup-copilot, setup-opencode) earlier in the job."
           exit 1
         fi
         arguments="${PROMPT}"$'\n\n'"${INSTRUCTION}"
-        echo "odd-status through ${ODDYSSEY_CLI} on ${ODDYSSEY_MODEL}${PROMPT:+ - ${PROMPT}}"
+        echo "odd-status through ${ODDYSSEY_CLI} on ${ODDYSSEY_MODEL}${PROMPT:+ - $(printf '%s' "$PROMPT" | tr '\n\r' '  ')}"
         case "$ODDYSSEY_CLI" in
           copilot)
             # The Copilot CLI does not expand a slash command: the text

@@ -156,9 +156,9 @@ and never reads a secret itself. Placeholder values are obviously fake.
   `uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests`.
 - Each action's CI job runs the action for real on a bare checkout,
   latest and a pinned package version, and asserts what the runner
-  carries afterwards, then runs the headless smoke - the CLI running a
-  packaged prompt on the workflow's own token; a PR touching an action
-  is green when both pass.
+  carries afterwards, then runs the smoke - the `odd-status` action
+  through that setup, on the workflow's own token or the repository's
+  endpoint key; a PR touching an action is green when both pass.
 
 A PR pushed red costs a review round-trip; run the checks first.
 

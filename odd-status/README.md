@@ -51,7 +51,11 @@ documents:
   GitHub MCP server, the token stripped from the shells the run opens.
 - **opencode** ([`setup-opencode`](../setup-opencode/README.md)):
   nothing beyond the setup; the launch line auto-approves the tools
-  (non-interactive mode requires it).
+  (non-interactive mode requires it), and the checkout's instruction
+  files (`AGENTS.md` and its kin) reach the run: opencode has no
+  equivalent of `--no-custom-instructions`, so a branch writes part of
+  the run's instructions - one more reason to keep the step off any
+  trigger that carries untrusted input.
 
 Without a setup action earlier in the job, the step fails and says so.
 The action needs `python3` on the runner's `PATH` (the ubuntu and macOS
