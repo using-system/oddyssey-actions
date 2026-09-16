@@ -28,21 +28,24 @@ installed, and turns its verdict into outputs a workflow can gate on:
 | `report` | The run's whole answer, the status as the packaged command renders it. |
 
 The run's summary carries the verdict, the todo as a table and the
-report. The judgement is the model's: the action asks it to end its
-answer with one JSON verdict - `error` when something demands a fix
-before the next step, `warning` when something is due or degraded but
-not blocking, `ok` when nothing is due - and parses that block. What
-the memory records as settled is never a warning: a telemetry gap the
-report itself marks by design, out of the spec's scope, informational
-or the store's; a finding the decisions ledger declined (any verdict
-other than `open`); a "Judgment needed" item the rules cannot settle
-from the memory alone (a ruling outside a chain, a classification row
-for an entry that no longer exists, a section cut by the screen's cap).
-The summary names those as facts; a deferral the maintainer can settle
-with a command is a todo without raising the status - a gap the report
-still calls a gap stays a warning. A missing or malformed block is an
-`error` whose summary says so; a run with no answer fails whatever
-`fail-on` says.
+report. The judgement is the model's, anchored on the loop's own rule:
+the action asks it to end its answer with one JSON verdict whose status
+follows the **Action** column of the loop state table - `ok` when every
+lineage's action is `loop can rest` (or `plan verified`) and the
+`Regr.` column is 0, `warning` when a lineage's action is
+`verification due`, `observation overdue`, `fix pending` or `plan
+awaits verification`, when there is no loop state table at all (the
+loop has not started, or nothing matches the prompt), or when a
+"Judgment needed" item - or a `judgment needed` lineage - is one the
+maintainer can settle with a command, `error` when a verification
+failed, a finding regressed, a report could not be read or the memory
+invariant reports a violation - and parses that block. Telemetry gaps,
+declined findings, "Judgment needed" items (or lineages) the rules
+cannot settle from the memory, and the decisions a report leaves to
+the spec are facts the summary names and the todo may list; they never
+set the status. A missing or
+malformed block is an `error` whose summary says so; a run with no
+answer fails whatever `fail-on` says.
 
 ## Which CLI
 
