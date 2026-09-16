@@ -1,3 +1,5 @@
 .DS_Store
 # The actionlint binary the CI job (and a local run of it) downloads at the root
 /actionlint
+__pycache__/
+.pytest_cache/

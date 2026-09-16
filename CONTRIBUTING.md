@@ -18,7 +18,7 @@ opens, or comments under your name.**
 | Where | What |
 | --- | --- |
 | `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`. |
-| `.github/workflows/ci.yml` | actionlint on the workflows, shellcheck on the actions' bash steps, and one job per action that runs it for real on a bare checkout. |
+| `.github/workflows/ci.yml` | actionlint on the workflows, shellcheck on the actions' bash steps, ruff and pytest on the scripts the actions ship, and one job per action that runs it for real on a bare checkout. |
 | `.github/workflows/release.yml` | A `vX.Y.Z` tag creates the GitHub release and moves the `vX` floating major tag. |
 
 ## Building and testing
@@ -30,12 +30,16 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 
 # The actions' bash steps, one shellcheck run per step (shellcheck on PATH,
 # or --shellcheck <binary>; the actionlint image carries one)
 uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py
+
+# The scripts the actions ship, with their tests
+uvx ruff@0.16.4 check ./scripts ./*/scripts ./*/tests
+uvx ruff@0.16.4 format --check ./scripts ./*/scripts ./*/tests
+uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests
 ```
 
 An action's install steps are proven by its CI job on a real runner:
-open the PR and read the job's log and summary, including the headless
-smoke step (the CLI running a packaged prompt on the workflow's own
-token).
+open the PR and read the job's log and summary, including the smoke,
+which is the `odd-status` action run through that setup.
 
 ## Pull requests
 
@@ -54,8 +58,8 @@ token).
 - **Never add a `!` or `BREAKING CHANGE` marker** without discussing it
   in the PR first: it means a major release, and consumers pinned on the
   floating major tag would not follow it.
-- CI must be green: actionlint, the actions' shellcheck, and the
-  action's job on a bare checkout.
+- CI must be green: actionlint, the actions' shellcheck, ruff and
+  pytest on the scripts, and the action's job on a bare checkout.
 - Every `uses:` pinned to a full commit SHA with the version in a
   trailing comment; no `${{ }}` inside a `run:` block; the rest of the
   security rules are AGENTS.md's "Security" section.

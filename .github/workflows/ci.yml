@@ -44,14 +44,31 @@ jobs:
         # blocks are checked one by one (shellcheck ships on the runner).
         run: uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py
 
+  scripts:
+    # The scripts the actions ship, with their tests: ruff and pytest at
+    # pinned versions, over every <action>/scripts and <action>/tests -
+    # both globs must match (an unmatched glob is passed literally).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: ruff
+        run: |
+          uvx ruff@0.16.4 check ./scripts ./*/scripts ./*/tests
+          uvx ruff@0.16.4 format --check ./scripts ./*/scripts ./*/tests
+      - name: pytest
+        # the closure (pluggy, iniconfig, packaging) bounded to the pin's date
+        run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests
+
   setup-copilot:
     # The action for real, on a bare checkout: the newest release and a
-    # pinned one, on both runner families. The headless smoke - the CLI
-    # running a packaged prompt - authenticates with the workflow's own
-    # token (copilot-requests: write) and runs on one cell only, never on
-    # a fork's PR (the permission is not granted there, and the request
-    # is billed to this repository); the token reaches that one step,
-    # never the install, and the launch line scopes what the run may do.
+    # pinned one, on both runner families. The smoke is the odd-status
+    # action - the consumer's own next step - with the workflow's token
+    # (copilot-requests: write), on one cell only and never on a fork's
+    # PR (the permission is not granted there, and the request is billed
+    # to this repository); the token reaches that one step, never the
+    # install.
     strategy:
       fail-fast: false
       matrix:
@@ -95,51 +112,28 @@ jobs:
           test -f "$HOME/.copilot/mcp-config.json"
           # The checkout stays clean.
           test -z "$(git status --porcelain)"
-      - name: Headless smoke - the packaged /odd-status on the bare checkout
+      - name: The odd-status action on the bare checkout
+        id: status
         if: >-
           matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         timeout-minutes: 10
+        uses: ./odd-status
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          MODEL: ${{ steps.setup.outputs.model }}
+      - name: The verdict has the shape a workflow gates on
+        if: steps.status.outcome == 'success'
+        env:
+          STATUS: ${{ steps.status.outputs.status }}
+          SUMMARY: ${{ steps.status.outputs.summary }}
+          TODO: ${{ steps.status.outputs.todo }}
+          REPORT: ${{ steps.status.outputs.report }}
         run: |
           set -euo pipefail
-          # The launch line the action's README documents, scoped: tools
-          # auto-approved (non-interactive mode requires it), file access
-          # to the skills only, no instructions from the checkout, the
-          # built-in GitHub MCP server off, the token stripped from the
-          # shells the run opens, the pinned CLI version and nothing newer.
-          copilot -p "/odd-status" --allow-all-tools --add-dir "$HOME/.agents/skills" \
-            --no-ask-user --no-custom-instructions --disable-builtin-mcps \
-            --secret-env-vars GITHUB_TOKEN --no-auto-update \
-            --output-format json --usage-output-file "$RUNNER_TEMP/usage.json" \
-            < /dev/null > "$RUNNER_TEMP/run.jsonl"
-          # The run called the packaged skill, on the model the input named,
-          # and answered.
-          python3 - "$RUNNER_TEMP/run.jsonl" "$RUNNER_TEMP/usage.json" "$MODEL" <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json, sys
-          skill_called, models, answer = False, set(), ""
-          for line in open(sys.argv[1]):
-              line = line.strip()
-              if not line:
-                  continue
-              event = json.loads(line)
-              data = event.get("data") or {}
-              if event.get("type") == "tool.execution_start" and data.get("toolName") == "skill" and (data.get("arguments") or {}).get("skill") == "get-status":
-                  skill_called = True
-              if event.get("type") == "model.call_start" and data.get("model"):
-                  models.add(data["model"])
-              if event.get("type") == "assistant.message" and data.get("content"):
-                  answer = data["content"]
-          usage = json.load(open(sys.argv[2]))
-          verdict = f"skill get-status called: {skill_called}; models: {sorted(models)}; premium requests: {usage.get('totalPremiumRequestCost')}"
-          print(verdict, file=sys.stderr)
-          print("### headless /odd-status\n")
-          print(verdict + "\n")
-          print(answer)
-          sys.exit(0 if skill_called and answer and sys.argv[3] in models else 1)
-          PY
+          case "$STATUS" in ok|warning|error) ;; *) echo "status: '${STATUS}'"; exit 1 ;; esac
+          [ -n "$REPORT" ]
+          printf '%s' "$TODO" | python3 -c 'import json, sys; assert isinstance(json.load(sys.stdin), list)'
+          echo "odd-status on copilot: ${STATUS} - ${SUMMARY}"
 
   setup-opencode:
     # The action for real, on a bare checkout, same matrix. On a fork's PR
@@ -147,8 +141,10 @@ jobs:
     # step of the setup spends it) so the four matrix cells still report
     # their required checks - a job-level condition would collapse the
     # matrix into one unexpanded check the ruleset never sees - and the
-    # smoke, which spends the key, is the one step gated on the PR's
-    # head repository.
+    # smoke, the odd-status action, which spends the key, is the one step
+    # gated on the PR's head repository. opencode has no
+    # --no-custom-instructions: the checkout's AGENTS.md reaches that run;
+    # accepted, since it runs on this repository's own branches only.
     strategy:
       fail-fast: false
       matrix:
@@ -188,41 +184,25 @@ jobs:
           opencode models openai-compatible | grep -qxF "$MODEL"
           # The checkout stays clean.
           test -z "$(git status --porcelain)"
-      - name: Headless smoke - the packaged odd-status command on the bare checkout
+      - name: The odd-status action on the bare checkout
+        id: status
         if: >-
           matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest'
           && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         timeout-minutes: 10
+        uses: ./odd-status
+        with:
+          prompt: the whole loop
+      - name: The verdict has the shape a workflow gates on
+        if: steps.status.outcome == 'success'
         env:
-          MODEL: ${{ steps.setup.outputs.model }}
+          STATUS: ${{ steps.status.outputs.status }}
+          SUMMARY: ${{ steps.status.outputs.summary }}
+          TODO: ${{ steps.status.outputs.todo }}
+          REPORT: ${{ steps.status.outputs.report }}
         run: |
           set -euo pipefail
-          # opencode expands the command itself (--command); --auto is what
-          # non-interactive mode requires; the events stream to a file.
-          # opencode has no --no-custom-instructions: the checkout's
-          # AGENTS.md reaches the run. Accepted here - this step runs on this
-          # repository's own branches only, whose authors have push access.
-          opencode run --model "$MODEL" --format json --auto --title "ci smoke" \
-            --command odd-status "" < /dev/null > "$RUNNER_TEMP/run.jsonl"
-          # The run called the packaged skill and answered.
-          python3 - "$RUNNER_TEMP/run.jsonl" <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json, sys
-          skill_called, texts = False, []
-          for line in open(sys.argv[1]):
-              line = line.strip()
-              if not line:
-                  continue
-              event = json.loads(line)
-              part = event.get("part") or {}
-              if event.get("type") == "tool_use" and part.get("tool") == "skill" and (part.get("state") or {}).get("input", {}).get("name") == "get-status":
-                  skill_called = True
-              if event.get("type") == "text" and part.get("text"):
-                  texts.append(part["text"])
-          answer = texts[-1] if texts else ""
-          verdict = f"skill get-status called: {skill_called}; text events: {len(texts)}"
-          print(verdict, file=sys.stderr)
-          print("### headless odd-status (opencode)\n")
-          print(verdict + "\n")
-          print(answer)
-          sys.exit(0 if skill_called and answer else 1)
-          PY
+          case "$STATUS" in ok|warning|error) ;; *) echo "status: '${STATUS}'"; exit 1 ;; esac
+          [ -n "$REPORT" ]
+          printf '%s' "$TODO" | python3 -c 'import json, sys; assert isinstance(json.load(sys.stdin), list)'
+          echo "odd-status on opencode: ${STATUS} - ${SUMMARY}"
