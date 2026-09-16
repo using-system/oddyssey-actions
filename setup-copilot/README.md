@@ -5,15 +5,13 @@ so a later step can run an oddyssey prompt headlessly:
 
 ```yaml
 - uses: using-system/oddyssey-actions/setup-copilot@v1
-  with:
-    model: claude-sonnet-5
 ```
 
 ## Inputs
 
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
-| `model` | yes | | The Copilot model the missions run on, as the CLI's model picker names it. Exported to the later steps as `COPILOT_MODEL`, which `--model` on the launch line overrides; never written to a config file. |
+| `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL`, which `--model` on the launch line overrides; never written to a config file. |
 | `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`) or `latest`, the newest release tag. |
 
 ## Outputs
@@ -72,7 +70,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: using-system/oddyssey-actions/setup-copilot@v1
         with:
-          model: claude-sonnet-5
+          model: claude-sonnet-5 # optional; gpt-5.6-luna without it
       - name: Where is the ODD loop?
         env:
           GITHUB_TOKEN: ${{ github.token }}

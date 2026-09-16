@@ -11,10 +11,12 @@ inputs:
   model:
     description: >-
       The Copilot model the missions run on, as the CLI's model picker
-      names it (`claude-sonnet-5`, ...). Exported to the later steps as
-      COPILOT_MODEL, which `--model` on the launch line overrides; never
-      written to a config file.
-    required: true
+      names it (`gpt-5.6-luna`, `claude-sonnet-5`, ...). Exported to the
+      later steps as COPILOT_MODEL, which `--model` on the launch line
+      overrides; never written to a config file. Defaults to
+      `gpt-5.6-luna`, the cheapest model the oddyssey benchmark measured.
+    required: false
+    default: gpt-5.6-luna
   oddyssey-version:
     description: >-
       The oddyssey release to install: a release tag (`v1.12.1`) or
