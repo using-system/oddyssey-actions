@@ -1,0 +1,45 @@
+name: Bug report
+description: An action misbehaves - the install, what it resolves, what it prints, the runner it leaves behind
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. State what you **confirmed** with a workflow run and its log vs what you only **observed** once. Self-contained reports get fixed fastest.
+  - type: input
+    id: action
+    attributes:
+      label: Action and ref
+      description: The action and the ref you pinned it at
+      placeholder: "e.g. setup-copilot@v1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Runner
+      description: The runner label, and the CLI and oddyssey versions the action printed
+      placeholder: "ubuntu-latest, Copilot CLI 1.0.85, oddyssey v1.12.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: confidence
+    attributes:
+      label: Status
+      options:
+        - "confirmed - reproduced with a workflow run and its log"
+        - "observed - seen once, not yet isolated"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what you expected
+      description: Include the workflow step and its real log where possible - never a token.
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Suggested fix, workaround you used, related issues.

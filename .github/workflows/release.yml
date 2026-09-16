@@ -1,0 +1,56 @@
+name: release
+run-name: "release: ${{ github.ref_name }}"
+
+on:
+  # One trigger, one act: pushing a version tag IS the release order.
+  #   git tag v1.0.0 && git push origin v1.0.0
+  # The workflow creates the GitHub release for exactly that tag, its
+  # notes generated from the PR titles merged since the previous
+  # release, and moves the floating major tag (v1) to it. Re-running a
+  # failed run is safe: an existing release is kept, the major tag is
+  # moved again. A future ruleset on v* tags must exempt the ambient
+  # GITHUB_TOKEN's force-push below or the pipeline breaks itself.
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+# One release at a time - a second tag push queues behind the first.
+concurrency:
+  group: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check the tag is a plain vX.Y.Z
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ! echo "$REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::tag ${REF_NAME} is not a plain vX.Y.Z version tag."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create the GitHub release with generated notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists - kept"
+          else
+            gh release create "$TAG" --verify-tag --generate-notes --title "$TAG"
+          fi
+      - name: Move the floating major tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MAJOR="${TAG%%.*}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --force "$MAJOR" "$TAG"
+          git push --force origin "refs/tags/$MAJOR"
+          echo "$MAJOR -> $TAG"

@@ -1,0 +1,30 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# The jobs run pull-request-controlled code (the actions of the PR's
+# tree): state least privilege here instead of relying on the
+# repository default.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: actionlint
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+        run: |
+          # rhysd/actionlint's own download script, pinned to the commit
+          # tagged v1.7.12; the binary lands at the repository root.
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) "$ACTIONLINT_VERSION"
+          ./actionlint -color
