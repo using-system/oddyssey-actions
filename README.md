@@ -9,7 +9,7 @@ inside a workflow.
 
 | Action | What it does |
 | --- | --- |
-| [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI and the oddyssey package on the runner, the model and the package version as its only inputs. |
+| [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI and the oddyssey package on the runner, the model (default `gpt-5.6-luna`) and the package version (default `latest`) as its only inputs. |
 
 **One setup action per CLI.** Each CLI installs, authenticates, takes its
 model and loads the package differently, so a `setup-<cli>` action owns
