@@ -14,3 +14,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(deps)"
+  - package-ecosystem: github-actions
+    directory: /setup-opencode
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(deps)"
