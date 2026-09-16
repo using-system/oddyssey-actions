@@ -29,7 +29,7 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 
 
 # The actions' bash steps, one shellcheck run per step (shellcheck on PATH,
 # or --shellcheck <binary>; the actionlint image carries one)
-python3 scripts/shellcheck_actions.py
+uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py
 ```
 
 An action's install steps are proven by its CI job on a real runner:
@@ -57,7 +57,8 @@ token).
 - CI must be green: actionlint, the actions' shellcheck, and the
   action's job on a bare checkout.
 - Every `uses:` pinned to a full commit SHA with the version in a
-  trailing comment; no `${{ }}` inside a `run:` block.
+  trailing comment; no `${{ }}` inside a `run:` block; the rest of the
+  security rules are AGENTS.md's "Security" section.
 - One logical change per PR; an action's README and the root catalog
   change in the same PR as the action.
 
