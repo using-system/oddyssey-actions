@@ -25,8 +25,8 @@ other inputs mean something else per value. A `setup-claude` or
 
 Pin the floating major tag (`v1`, moved on every release of that
 major), an exact release tag (`v1.0.0`), or a commit SHA. Each action's
-README states its inputs, its outputs, which token the caller provides
-and one complete example workflow.
+README states its inputs, its outputs, how the launch step
+authenticates and one complete example workflow.
 
 ## Releases
 

@@ -28,12 +28,15 @@ The step's log and the run's summary state the same three values.
 
 ## Auth
 
-A Copilot-entitled token is required: the workflow's `GITHUB_TOKEN`
-carries no Copilot entitlement, so the caller sets a user token in the
-CLI's own variable, `COPILOT_GITHUB_TOKEN`, on the step that runs
-`copilot`. The action needs no Copilot token: it hands the ambient
-`github.token` to the CLI's installer only, to lift the anonymous
-download rate limit, and validates nothing beyond the CLI answering.
+The step that runs `copilot` authenticates with the workflow's own
+token: the job grants `copilot-requests: write` and the step sets
+`GITHUB_TOKEN: ${{ github.token }}` (the CLI's usage is then billed to
+the repository's owner - an organization needs its "Copilot CLI" policy
+on). A personal token in the CLI's own variable, `COPILOT_GITHUB_TOKEN`,
+is the alternative when the run must be billed to a user. The action
+needs no Copilot token: it hands the ambient `github.token` to the
+CLI's installer only, to lift the anonymous download rate limit, and
+validates nothing beyond the CLI answering.
 
 ## What lands where
 
@@ -60,6 +63,7 @@ on:
 
 permissions:
   contents: read
+  copilot-requests: write
 
 jobs:
   status:
@@ -71,7 +75,7 @@ jobs:
           model: claude-sonnet-5
       - name: Where is the ODD loop?
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: copilot -p "/odd-status" --allow-all-tools --allow-all-paths --no-ask-user
 ```
 
