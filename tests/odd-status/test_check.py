@@ -25,13 +25,12 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     )
     assert '{"status": "ok" | "warning" | "error"' in arguments
     # Issue #24: what the memory records as settled is a fact, not a warning.
-    assert "never on what the memory records as settled" in arguments
-    assert "a telemetry gap the report records as by design" in arguments
-    assert "a finding the decisions ledger declined" in arguments
-    assert "a Judgment needed item the rules cannot settle" in arguments
-    # and the due case still warns: a gap the report still calls a gap
-    assert "a telemetry gap the report still calls a gap" in arguments
-    assert "a todo without raising the status" in arguments
+    # Issue #26: the status follows the loop state's Action column; gaps,
+    # declined findings and deferrals are facts for the summary.
+    assert "The status follows the Action column of the loop state table" in arguments
+    assert "ok when every lineage's action is loop can rest" in arguments
+    assert "warning when a lineage's action is verification due" in arguments
+    assert "never let them set the status" in arguments
     assert arguments.endswith("is empty when there is nothing to do.\n")
     assert (
         "odd-status through copilot on gpt-5.6-luna - the checkout service"
