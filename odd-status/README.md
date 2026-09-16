@@ -39,7 +39,9 @@ loop has not started, or nothing matches the prompt), or when a
 "Judgment needed" item - or a `judgment needed` lineage - is one the
 maintainer can settle with a command, `error` when a verification
 failed, a finding regressed, a report could not be read or the memory
-invariant reports a violation - and parses that block. Telemetry gaps,
+invariant reports a violation (a report failing the contract; a
+skipped ledger row is a fact it reports, never a violation) - and
+parses that block. Telemetry gaps,
 declined findings, "Judgment needed" items (or lineages) the rules
 cannot settle from the memory, and the decisions a report leaves to
 the spec are facts the summary names and the todo may list; they never
