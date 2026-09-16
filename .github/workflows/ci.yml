@@ -28,3 +28,91 @@ jobs:
           # tagged v1.7.12; the binary lands at the repository root.
           bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) "$ACTIONLINT_VERSION"
           ./actionlint -color
+      - name: shellcheck the actions' bash steps
+        # actionlint parses workflows only; a composite action's run
+        # blocks are checked one by one (shellcheck ships on the runner).
+        run: |
+          pip3 install --quiet --disable-pip-version-check pyyaml==6.0.3
+          python3 scripts/shellcheck_actions.py
+
+  setup-copilot:
+    # The action for real, on a bare checkout: the newest release and a
+    # pinned one, on both runner families. The headless smoke - the CLI
+    # running a packaged prompt - needs a Copilot-entitled token and runs
+    # on one cell only, when the repository carries the secret; the
+    # secret itself is exposed to that one step, never to the install.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        oddyssey-version: [latest, v1.12.0]
+    runs-on: ${{ matrix.os }}
+    env:
+      HAS_COPILOT_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: setup
+        uses: ./setup-copilot
+        with:
+          model: claude-sonnet-5
+          oddyssey-version: ${{ matrix.oddyssey-version }}
+      - name: The runner carries what the action says it installed
+        env:
+          REQUESTED: ${{ matrix.oddyssey-version }}
+          RESOLVED: ${{ steps.setup.outputs.oddyssey-version }}
+          COPILOT_VERSION: ${{ steps.setup.outputs.copilot-version }}
+          MODEL: ${{ steps.setup.outputs.model }}
+        run: |
+          set -euo pipefail
+          answer="$(copilot --version)"
+          case "${answer%%$'\n'*}" in *"$COPILOT_VERSION"*) ;; *) echo "copilot --version says: ${answer}"; exit 1 ;; esac
+          echo "$RESOLVED" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          if [ "$REQUESTED" != "latest" ]; then [ "$RESOLVED" = "$REQUESTED" ]; fi
+          [ "$COPILOT_MODEL" = "$MODEL" ]
+          # The nine skills oddyssey ships: deployed, and listed by the CLI
+          # (read once into a file: the CLI dies of EPIPE when a grep
+          # closes its pipe early).
+          copilot skill list > "$RUNNER_TEMP/skills.txt"
+          for skill in backend-configuration get-status k6-guides observability-cli-guides odd-memory otel-guides package-layout run-scenario setup-local-stack; do
+            test -f "$HOME/.agents/skills/${skill}/SKILL.md"
+            grep -Eq "(^|[[:space:]])${skill}([[:space:]]|$)" "$RUNNER_TEMP/skills.txt"
+          done
+          test -f "$HOME/.copilot/prompts/odd-status.prompt.md"
+          test -f "$HOME/.copilot/mcp-config.json"
+          # The checkout stays clean.
+          test -z "$(git status --porcelain)"
+      - name: Headless smoke - the packaged /odd-status on the bare checkout
+        if: matrix.os == 'ubuntu-latest' && matrix.oddyssey-version == 'latest' && env.HAS_COPILOT_TOKEN == 'true'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          MODEL: ${{ steps.setup.outputs.model }}
+        run: |
+          set -euo pipefail
+          copilot -p "/odd-status" --allow-all-tools --allow-all-paths --no-ask-user \
+            --output-format json --usage-output-file "$RUNNER_TEMP/usage.json" \
+            < /dev/null > "$RUNNER_TEMP/run.jsonl"
+          # The run called the packaged skill, on the model the input named,
+          # and answered.
+          python3 - "$RUNNER_TEMP/run.jsonl" "$RUNNER_TEMP/usage.json" "$MODEL" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          skill_called, models, answer = False, set(), ""
+          for line in open(sys.argv[1]):
+              line = line.strip()
+              if not line:
+                  continue
+              event = json.loads(line)
+              data = event.get("data") or {}
+              if event.get("type") == "tool.execution_start" and data.get("toolName") == "skill" and (data.get("arguments") or {}).get("skill") == "get-status":
+                  skill_called = True
+              if event.get("type") == "model.call_start" and data.get("model"):
+                  models.add(data["model"])
+              if event.get("type") == "assistant.message" and data.get("content"):
+                  answer = data["content"]
+          usage = json.load(open(sys.argv[2]))
+          verdict = f"skill get-status called: {skill_called}; models: {sorted(models)}; premium requests: {usage.get('totalPremiumRequestCost')}"
+          print(verdict, file=sys.stderr)
+          print("### headless /odd-status\n")
+          print(verdict + "\n")
+          print(answer)
+          sys.exit(0 if skill_called and answer and sys.argv[3] in models else 1)
+          PY

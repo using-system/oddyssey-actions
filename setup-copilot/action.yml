@@ -1,0 +1,146 @@
+name: "Setup Copilot for oddyssey"
+description: >-
+  Install the GitHub Copilot CLI and the oddyssey package on the runner,
+  ready for a headless `copilot -p` step that runs an oddyssey prompt.
+author: using-system
+branding:
+  icon: terminal
+  color: purple
+
+inputs:
+  model:
+    description: >-
+      The Copilot model the missions run on, as the CLI's model picker
+      names it (`claude-sonnet-5`, ...). Exported to the later steps as
+      COPILOT_MODEL, which `--model` on the launch line overrides; never
+      written to a config file.
+    required: true
+  oddyssey-version:
+    description: >-
+      The oddyssey release to install: a release tag (`v1.12.1`) or
+      `latest`, the newest release tag.
+    required: false
+    default: latest
+
+outputs:
+  copilot-version:
+    description: The Copilot CLI version installed (`1.0.85`).
+    value: ${{ steps.copilot.outputs.version }}
+  oddyssey-version:
+    description: The oddyssey release tag resolved and installed (`v1.12.1`).
+    value: ${{ steps.resolve.outputs.version }}
+  model:
+    description: The `model` input, echoed for the launch line.
+    value: ${{ inputs.model }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the oddyssey release
+      id: resolve
+      shell: bash
+      env:
+        REQUESTED: ${{ inputs.oddyssey-version }}
+      run: |
+        set -euo pipefail
+        # The release tags of using-system/oddyssey, plain vX.Y.Z only,
+        # read off the remote with no API call and no token. Resolved
+        # first: a wrong input costs nothing else.
+        tags="$( (git ls-remote --tags --refs https://github.com/using-system/oddyssey.git 'refs/tags/v*' || true) \
+          | awk -F/ '{print $NF}' | (grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) | sort -V)"
+        if [ -z "$tags" ]; then
+          echo "::error::no release tag of using-system/oddyssey could be read from github.com."
+          exit 1
+        fi
+        if [ "$REQUESTED" = "latest" ]; then
+          version="$(printf '%s\n' "$tags" | tail -1)"
+        else
+          version="$REQUESTED"
+          case "$version" in v*) ;; *) version="v${version}" ;; esac
+          if ! printf '%s\n' "$tags" | grep -qxF "$version"; then
+            echo "::error::oddyssey-version '${REQUESTED}' is not a release tag of using-system/oddyssey (a plain vX.Y.Z, or latest)."
+            exit 1
+          fi
+        fi
+        echo "oddyssey ${version} (requested: ${REQUESTED})"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Install the Copilot CLI
+      id: copilot
+      shell: bash
+      env:
+        PREFIX: ${{ runner.temp }}/copilot-cli
+        # The installer authenticates its download with GITHUB_TOKEN when
+        # set: the ambient token spares the runner's shared, unauthenticated
+        # rate limit on api.github.com.
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        # GitHub's own installer: it picks the platform, downloads the
+        # latest release of github/copilot-cli and checks the archive
+        # against the release's SHA256SUMS before extracting into
+        # $PREFIX/bin. The CLI's auto-update is off on a runner (CI is set).
+        curl -fsSL https://gh.io/copilot-install | bash
+        echo "$PREFIX/bin" >> "$GITHUB_PATH"
+        # Two lines ("GitHub Copilot CLI 1.0.85." then an update hint):
+        # the first one, read whole rather than through a pipe the CLI
+        # would see closed early.
+        answer="$("$PREFIX/bin/copilot" --version)"
+        answer="${answer%%$'\n'*}"
+        version="$(printf '%s\n' "$answer" | (sed -nE 's/^GitHub Copilot CLI ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+)?)\.?$/\1/p' || true))"
+        if [ -z "$version" ]; then
+          echo "::error::the installed Copilot CLI did not answer its version (got: ${answer})."
+          exit 1
+        fi
+        echo "Copilot CLI ${version}"
+        echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+
+    - name: Install the oddyssey package for the copilot target
+      id: package
+      shell: bash
+      env:
+        # oddyssey's own apm-cli pin (its CONTRIBUTING.md): the minimum
+        # version that deploys the package whole. Bump it when oddyssey does.
+        APM_CLI_VERSION: "0.30.0"
+        VERSION: ${{ steps.resolve.outputs.version }}
+        MODEL: ${{ inputs.model }}
+      run: |
+        set -euo pipefail
+        # User scope: the package lands under the runner's home - prompts,
+        # agents, hooks and the MCP server under ~/.copilot/, the skills
+        # under ~/.agents/skills/ - and the checkout stays clean. The
+        # repository is public: apm clones it with no credential.
+        # apm-cli declares Python >=3.10 but imports a 3.11 name: the
+        # constraint keeps uvx off an older interpreter a runner may
+        # carry first on its PATH (macOS ships 3.9 at /usr/bin/python3).
+        uvx --python '>=3.11' --from "apm-cli==${APM_CLI_VERSION}" apm install --global --target copilot "using-system/oddyssey#${VERSION}"
+        skills="$( (find "$HOME/.agents/skills" -mindepth 2 -maxdepth 2 -name SKILL.md 2>/dev/null || true) | wc -l | tr -d ' ')"
+        if [ "$skills" -eq 0 ]; then
+          echo "::error::apm ${APM_CLI_VERSION} deployed no skill for oddyssey ${VERSION} - the package is not usable without them."
+          exit 1
+        fi
+        echo "COPILOT_MODEL=${MODEL}" >> "$GITHUB_ENV"
+        echo "skills=${skills}" >> "$GITHUB_OUTPUT"
+
+    - name: What the runner carries
+      shell: bash
+      env:
+        COPILOT_VERSION: ${{ steps.copilot.outputs.version }}
+        VERSION: ${{ steps.resolve.outputs.version }}
+        SKILLS: ${{ steps.package.outputs.skills }}
+        MODEL: ${{ inputs.model }}
+      run: |
+        set -euo pipefail
+        echo "Copilot CLI ${COPILOT_VERSION}, oddyssey ${VERSION} (${SKILLS} skills), model ${MODEL}"
+        {
+          echo "### setup-copilot"
+          echo ""
+          echo "| | |"
+          echo "| --- | --- |"
+          echo "| Copilot CLI | ${COPILOT_VERSION} |"
+          echo "| oddyssey | ${VERSION} (${SKILLS} skills) |"
+          echo "| model | ${MODEL} |"
+        } >> "$GITHUB_STEP_SUMMARY"

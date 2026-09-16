@@ -65,6 +65,9 @@ and never reads a secret itself. Placeholder values are obviously fake.
 - actionlint on `.github/workflows/`, at the version the `ci`
   workflow pins:
   `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color`
+  It parses workflows only: the actions' bash steps go through
+  `python3 scripts/shellcheck_actions.py` (shellcheck on PATH, or
+  `--shellcheck <binary>`), the same pass CI runs.
 - Each action's CI job runs the action for real on a bare checkout,
   latest and a pinned package version, and asserts what the runner
   carries afterwards. Its headless smoke step - the CLI running a
