@@ -18,7 +18,11 @@ import yaml
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--shellcheck", default="shellcheck", help="the shellcheck binary (default: on PATH)")
+    parser.add_argument(
+        "--shellcheck",
+        default="shellcheck",
+        help="the shellcheck binary (default: on PATH)",
+    )
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parent.parent
     failed = 0
@@ -35,6 +39,7 @@ def main() -> int:
                 input=step["run"],
                 text=True,
                 capture_output=True,
+                check=False,
             )
             if result.returncode != 0:
                 failed += 1

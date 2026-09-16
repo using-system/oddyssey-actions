@@ -11,7 +11,7 @@ so a later step can run an oddyssey prompt headlessly:
 
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
-| `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL` (which `--model` on a launch line overrides) and as `ODDYSSEY_MODEL`; never written to a config file. |
+| `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL`, which `--model` on the launch line overrides; never written to a config file. |
 | `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. |
 
 ## Outputs
@@ -23,10 +23,10 @@ so a later step can run an oddyssey prompt headlessly:
 | `model` | The `model` input, echoed. |
 
 The later steps also receive `ODDYSSEY_CLI=copilot` and
-`ODDYSSEY_MODEL=<the model>` in their environment: the `odd-status`
-action (landing next, using-system/oddyssey-actions#11) reads them to
-know which CLI to launch and how. The step's log and the run's summary
-state the same three values.
+`ODDYSSEY_MODEL=<the model>` in their environment: the
+[`odd-status`](../odd-status/README.md) action reads them to know which
+CLI to launch and how. The step's log and the run's summary state the
+same three values.
 
 ## Auth
 
@@ -78,40 +78,29 @@ jobs:
       - uses: using-system/oddyssey-actions/setup-copilot@v1
         with:
           model: claude-sonnet-5 # optional; gpt-5.6-luna without it
-      - name: Where is the ODD loop?
+      - uses: using-system/oddyssey-actions/odd-status@v1
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          copilot -p "/odd-status" --allow-all-tools --add-dir "$HOME/.agents/skills"
-          --no-ask-user --no-custom-instructions --disable-builtin-mcps
-          --secret-env-vars GITHUB_TOKEN --no-auto-update
 ```
 
-The launch line is the caller's, and each flag is load-bearing:
-`--allow-all-tools` is what non-interactive mode requires, and it
-grants a shell; `--add-dir "$HOME/.agents/skills"` lets the run execute
-the skills' scripts, which live under the runner's home rather than the
-checkout (`--allow-all-paths` would open the whole filesystem instead);
-`--no-ask-user` removes the tool a run would otherwise use to ask a
-question nobody answers; `--no-custom-instructions` keeps the checkout's
-`AGENTS.md` and its kin out of the session, so a pull request cannot
-write the run's instructions; `--disable-builtin-mcps` asks the CLI not
-to load its built-in GitHub MCP server, which would act on the token;
-`--secret-env-vars GITHUB_TOKEN` strips the token from the shells and
-MCP servers the run starts and redacts it from the output;
-`--no-auto-update` runs the version the action installed and nothing
-newer. The Copilot CLI does not expand a slash command: `/odd-status`
-reaches the model as written, and the model routes it to the packaged
-skill. Add `--model` to override `COPILOT_MODEL` for one step, and
-`--output-format json` with `--usage-output-file <path>` to keep the
-session's events and its usage.
+The step that runs a prompt is an action of this repository, never a
+hand-written headless line: [`odd-status`](../odd-status/README.md)
+launches the CLI with the packaged command, scoped, and turns the
+answer into outputs a workflow can gate on. The Copilot CLI does not
+expand a slash command: the text reaches the model as written, and the
+model routes it to the packaged skill.
 
 ## What this grants
 
-With that line, the model runs any shell command the runner allows,
-reads and writes the checkout and the skills' directory, reaches the
-network, and reads whatever the prompt and the skills put in front of
-it. Keep the job at `contents: read` and `copilot-requests: write`,
+A step that launches the CLI (`--allow-all-tools`, which
+non-interactive mode requires, grants a shell; the actions of this
+repository add `--add-dir "$HOME/.agents/skills"` in place of
+`--allow-all-paths`, `--no-custom-instructions`,
+`--disable-builtin-mcps`, `--secret-env-vars GITHUB_TOKEN` and
+`--no-auto-update`) lets the model run any shell command the runner
+allows, read and write the checkout and the skills' directory, reach
+the network, and read whatever the prompt and the skills put in front
+of it. Keep the job at `contents: read` and `copilot-requests: write`,
 never put the step on a trigger that carries untrusted input
 (`issue_comment`, `pull_request_target`, a fork's `pull_request`), and
 treat the answer as untrusted text before it reaches a place that acts

@@ -10,6 +10,7 @@ inside a workflow.
 | Action | What it does |
 | --- | --- |
 | [`setup-copilot`](setup-copilot/README.md) | Installs the GitHub Copilot CLI (pinned, checksum-verified) and the oddyssey package on the runner, the model (default `gpt-5.6-luna`) and the package version (default `latest`; a tag or a commit SHA) as its only inputs. |
+| [`odd-status`](odd-status/README.md) | Runs the packaged `/odd-status` through the CLI a setup action installed and turns its verdict (`ok`, `warning`, `error`, the next actions) into outputs; `fail-on` makes it a gate. |
 | [`setup-opencode`](setup-opencode/README.md) | Installs opencode (pinned, checksum-verified) and the oddyssey package on the runner, an OpenAI-compatible endpoint as its provider (default OpenRouter, the key as a secret input), the same model and package version inputs. |
 
 **One setup action per CLI.** Each CLI installs, authenticates, takes its

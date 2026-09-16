@@ -49,8 +49,15 @@ and never reads a secret itself. Placeholder values are obviously fake.
   action that runs a prompt reads to pick its launch line.
 - **An action runs a prompt; a consumer never writes a headless line.**
   The README of a setup action shows the prompt-running action
-  (`odd-status`, landing with using-system/oddyssey-actions#11) as the
-  next step, never a hand-written `copilot -p` or `opencode run`.
+  (`odd-status`) as the next step, never a hand-written `copilot -p` or
+  `opencode run`; CI smokes a setup through that action too. The launch
+  line per CLI lives in the prompt-running action, once, and reads
+  `ODDYSSEY_CLI` and `ODDYSSEY_MODEL`.
+- **A script an action ships carries its tests** under
+  `<action>/tests/`, run by CI with pytest and linted with ruff at the
+  versions the `ci` workflow pins; the action calls the script through
+  `${{ github.action_path }}`, and the script's docstring states its
+  whole flag surface.
 - A composite action, its steps in bash. An action installs and prints
   what it installed (the CLI version, the package version resolved,
   what was deployed) so the workflow log states what ran; it validates
@@ -87,11 +94,13 @@ and never reads a secret itself. Placeholder values are obviously fake.
   `OPENCODE_VERSION` with its four `SHA256_*` (setup-opencode; opencode
   publishes no checksum file, compute them from the release's assets),
   `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (both setups; follow
-  oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`
-  and `pyyaml==` (ci), the
+  oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`,
+  `pyyaml==`, `pytest==` with its `--exclude-newer` date, and `ruff@`
+  (ci), the
   `v1.12.0` matrix cell (ci; it is also a required check's name in the
-  `main` ruleset - change both together), the versions CONTRIBUTING.md
-  quotes.
+  `main` ruleset - change both together, and a new job in `ci` is added
+  to the ruleset's required checks when it lands), the versions
+  CONTRIBUTING.md quotes.
 - **No token reaches code the repository does not control.** A step
   that downloads or runs a third party's code carries no `GITHUB_TOKEN`
   unless that code provably needs one, and the PR says for what. An
@@ -141,6 +150,10 @@ and never reads a secret itself. Placeholder values are obviously fake.
   `uv run --no-project --with pyyaml==6.0.3 python scripts/shellcheck_actions.py`
   (shellcheck on PATH, or `--shellcheck <binary>`), the same pass CI
   runs.
+- The scripts the actions ship, with their tests:
+  `uvx ruff@0.16.4 check ./scripts ./*/scripts ./*/tests`, the same with
+  `format --check`, and
+  `uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 pytest -v ./*/tests`.
 - Each action's CI job runs the action for real on a bare checkout,
   latest and a pinned package version, and asserts what the runner
   carries afterwards, then runs the headless smoke - the CLI running a
