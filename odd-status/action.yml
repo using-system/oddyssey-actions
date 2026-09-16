@@ -23,6 +23,15 @@ inputs:
       produced no answer).
     required: false
     default: none
+  token:
+    description: >-
+      The token the Copilot run authenticates with, set as `GITHUB_TOKEN`
+      on the Copilot launch step and nowhere else; the opencode run never
+      receives it. Defaults to the workflow's own token, which needs the
+      job permission `copilot-requests: write`; a user token when the run
+      must be billed to a user. The action passes it as given.
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   status:
@@ -41,13 +50,13 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Run the packaged odd-status
-      id: run
+    - name: Check the setup and the inputs
+      id: check
       shell: bash
       env:
         PROMPT: ${{ inputs.prompt }}
         FAIL_ON: ${{ inputs.fail-on }}
-        EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
+        ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
         # The verdict the run must end with - the contract scripts/verdict.py
         # parses. The judgement is the model's; the shape is not.
         INSTRUCTION: >-
@@ -77,34 +86,70 @@ runs:
           echo "::error::ODDYSSEY_CLI and ODDYSSEY_MODEL are not set - run a setup action (setup-copilot, setup-opencode) earlier in the job."
           exit 1
         fi
-        arguments="${PROMPT}"$'\n\n'"${INSTRUCTION}"
-        echo "odd-status through ${ODDYSSEY_CLI} on ${ODDYSSEY_MODEL}${PROMPT:+ - $(printf '%s' "$PROMPT" | tr '\n\r' '  ')}"
-        case "$ODDYSSEY_CLI" in
-          copilot)
-            # The Copilot CLI does not expand a slash command: the text
-            # reaches the model as written and the model routes it to the
-            # packaged skill. Scoped: tools auto-approved (non-interactive
-            # mode requires it), file access to the skills only, no
-            # instructions from the checkout, the built-in GitHub MCP server
-            # off, the token stripped from the shells the run opens, the
-            # installed version and nothing newer. The token is the caller's
-            # (GITHUB_TOKEN on this step, copilot-requests: write).
-            copilot -p "/odd-status ${arguments}" --model "$ODDYSSEY_MODEL" \
-              --allow-all-tools --add-dir "$HOME/.agents/skills" \
-              --no-ask-user --no-custom-instructions --disable-builtin-mcps \
-              --secret-env-vars GITHUB_TOKEN --no-auto-update \
-              --output-format json < /dev/null > "$EVENTS"
-            ;;
-          opencode)
-            # opencode expands the packaged command itself; --auto is what
-            # non-interactive mode requires.
-            opencode run --model "$ODDYSSEY_MODEL" --format json --auto --title "odd-status" \
-              --command odd-status "$arguments" < /dev/null > "$EVENTS"
-            ;;
-          *)
-            echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot or opencode."
-            exit 1 ;;
+        case "$ODDYSSEY_CLI" in copilot|opencode) ;; *)
+          echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot or opencode."; exit 1 ;;
         esac
+        # The command's arguments, handed to the launch step through a
+        # file: the prompt is the caller's text and never goes through
+        # GITHUB_OUTPUT or GITHUB_ENV.
+        printf '%s\n\n%s\n' "$PROMPT" "$INSTRUCTION" > "$ARGUMENTS_FILE"
+        echo "cli=${ODDYSSEY_CLI}" >> "$GITHUB_OUTPUT"
+        echo "odd-status through ${ODDYSSEY_CLI} on ${ODDYSSEY_MODEL}${PROMPT:+ - $(printf '%s' "$PROMPT" | tr '\n\r' '  ')}"
+
+    - name: Run the packaged odd-status through Copilot
+      if: steps.check.outputs.cli == 'copilot'
+      shell: bash
+      env:
+        ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
+        EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
+        # The token of this step and of no other: the CLI reads it from
+        # GITHUB_TOKEN; the workflow's own by default (copilot-requests:
+        # write on the job), or the one the token input names.
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        if [ -z "${GITHUB_TOKEN:-}" ]; then
+          echo "::error::the token input is empty - the Copilot run authenticates with it (the workflow's token by default, under copilot-requests: write)."
+          exit 1
+        fi
+        # The CLI reads COPILOT_GITHUB_TOKEN, then GH_TOKEN, then
+        # GITHUB_TOKEN (its `help environment`): either of the first two
+        # in this step's environment would silently replace the token
+        # input. The token input is the one path.
+        for other in COPILOT_GITHUB_TOKEN GH_TOKEN; do
+          if [ -n "${!other:-}" ]; then
+            echo "::error::${other} is set in the step's environment and the Copilot CLI would prefer it over the token input - pass that token as the action's token input instead, and unset ${other}."
+            exit 1
+          fi
+        done
+        arguments="$(cat "$ARGUMENTS_FILE")"
+        # The Copilot CLI does not expand a slash command: the text reaches
+        # the model as written and the model routes it to the packaged
+        # skill. Scoped: tools auto-approved (non-interactive mode requires
+        # it), file access to the skills only, no instructions from the
+        # checkout, the built-in GitHub MCP server off, the token stripped
+        # from the shells the run opens, the installed version and nothing
+        # newer.
+        copilot -p "/odd-status ${arguments}" --model "$ODDYSSEY_MODEL" \
+          --allow-all-tools --add-dir "$HOME/.agents/skills" \
+          --no-ask-user --no-custom-instructions --disable-builtin-mcps \
+          --secret-env-vars GITHUB_TOKEN --no-auto-update \
+          --output-format json < /dev/null > "$EVENTS"
+
+    - name: Run the packaged odd-status through opencode
+      if: steps.check.outputs.cli == 'opencode'
+      shell: bash
+      env:
+        ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
+        EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
+      run: |
+        set -euo pipefail
+        arguments="$(cat "$ARGUMENTS_FILE")"
+        # opencode expands the packaged command itself; --auto is what
+        # non-interactive mode requires. No token: the provider's key is
+        # the setup's, in the file opencode's config points at.
+        opencode run --model "$ODDYSSEY_MODEL" --format json --auto --title "odd-status" \
+          --command odd-status "$arguments" < /dev/null > "$EVENTS"
 
     - name: The verdict
       id: verdict
