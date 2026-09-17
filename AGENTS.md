@@ -148,11 +148,12 @@ obviously fake.
   oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`,
   `pyyaml==`, `pytest==` with its `--exclude-newer` date, and `ruff@`
   (ci), `ODDYSSEY_MINIMUM_VERSION` (the root file) with the matrix cell
-  that pins it, `v1.12.2` (ci; every cell of the `tests` job is a
-  required check's name in the `main` ruleset, `tests (<action>, <os>,
-  <version>)` - change both together, and a new cell is added to the
-  ruleset's required checks when it lands), the versions
-  CONTRIBUTING.md quotes.
+  that pins it, `v1.12.2` (ci), the versions CONTRIBUTING.md quotes.
+  The `main` ruleset's required checks are the `lint` job and the
+  `latest` cells of the `tests` job, `tests (<action>, <os>, latest[,
+  <cli>])` - never the pinned cell, whose name changes with the
+  minimum; a new action's `latest` cell is added to the ruleset when
+  it lands.
 - **No token reaches code the repository does not control.** A step
   that downloads or runs a third party's code carries no `GITHUB_TOKEN`
   unless that code provably needs one, and the PR says for what. A
