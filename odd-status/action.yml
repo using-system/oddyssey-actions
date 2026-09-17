@@ -38,8 +38,8 @@ outputs:
   status:
     description: >-
       The loop's verdict - `ok`, `warning` or `error` - as the package's
-      own get-status rules compute it (the verdict line its rendering
-      opens with); the model's judgement when the package predates that line.
+      own get-status rules compute it: the verdict line its rendering
+      opens with. `error` when the answer carries none.
     value: ${{ steps.verdict.outputs.status }}
   summary:
     description: One sentence on that verdict, the model's.
@@ -47,11 +47,8 @@ outputs:
   todo:
     description: >-
       The next actions, most urgent first, as a JSON array of {action, why} -
-      the rendering's todo line, or the model's when the package predates it.
+      the rendering's todo line.
     value: ${{ steps.verdict.outputs.todo }}
-  source:
-    description: Where the status and the todo come from - `rendering` or `model`.
-    value: ${{ steps.verdict.outputs.source }}
   report:
     description: The run's whole answer, the status as the packaged command renders it.
     value: ${{ steps.verdict.outputs.report }}

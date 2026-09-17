@@ -5,7 +5,6 @@ import pytest
 ENV = {
     "MODEL": "openai/gpt-5.6-luna",
     "BASE_URL": "https://openrouter.ai/api/v1",
-    "REQUESTED": "latest",
 }
 
 
@@ -32,14 +31,6 @@ def test_the_defaults_pass(script):
         (
             {"BASE_URL": 'https://a.example/v1"'},
             "openai-base-url must be an https:// URL made of URL characters",
-        ),
-        (
-            {"REQUESTED": ""},
-            "oddyssey-version must be a tag, a full commit SHA or latest",
-        ),
-        (
-            {"REQUESTED": "v1\nv2"},
-            "oddyssey-version must be a tag, a full commit SHA or latest",
         ),
     ],
 )

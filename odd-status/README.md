@@ -22,26 +22,23 @@ installed, and turns its verdict into outputs a workflow can gate on:
 
 | Output | What it is |
 | --- | --- |
-| `status` | The loop's verdict, `ok`, `warning` or `error`: the package's own, as its `get-status` rules compute it (the verdict line its rendering opens with); the model's judgement when the package predates that line. |
+| `status` | The loop's verdict, `ok`, `warning` or `error`: the package's own, as its `get-status` rules compute it (the verdict line its rendering opens with). `error` when the answer carries none. |
 | `summary` | One sentence on that verdict, the model's. |
-| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`: the rendering's todo line, or the model's when the package predates it. |
-| `source` | Where the status and the todo come from: `rendering` or `model`. |
+| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`: the rendering's todo line. |
 | `report` | The run's whole answer, the status as the packaged command renders it. |
 
-The run's summary carries the verdict, where it comes from, the todo as
-a table and the report. The intelligence is the package's: `get-status`
-opens its rendering with `- verdict: <status> - <reasons>` and
-`- todo: <the next actions>`, computed by its rules from every stored
-report, ruling and ledger row, and the action reads those two lines
-from the answer; the model writes the one-sentence summary, in the JSON
-block the action asks it to end with. A package that predates the
-verdict line gets the model's judgement instead, anchored on the same
-rule - the **Action** column of the loop state table: `ok` when every
-lineage's action is `loop can rest` (or `plan verified`) and the `Regr.`
-column is 0, `error` when a verification failed, a finding regressed or
-a report could not be read, `warning` otherwise - and the summary says
-so. A missing or malformed block is then an `error` whose summary says
-so; a run with no answer fails whatever `fail-on` says.
+The intelligence is the package's: `get-status` opens its rendering
+with `- verdict: <status> - <reasons>` and `- todo: <the next
+actions>`, computed by its rules from every stored report, ruling and
+ledger row, and the action reads those two lines from the answer; the
+model writes the one-sentence summary, in the JSON block the action
+asks it to end with (a missing block leaves the summary saying so). The
+run's summary carries the verdict, the todo as a table and the report.
+An answer with no verdict line is an `error` whose summary names the
+oddyssey version needed at minimum - the one every setup action of this
+release installs at least
+([`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION)); a run with
+no answer fails whatever `fail-on` says.
 
 ## Which CLI
 

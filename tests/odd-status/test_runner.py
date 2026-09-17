@@ -1,5 +1,5 @@
-"""On the runner, after `uses: ./odd-status` through a setup: the outputs
-the CI step passes as env have the shape a workflow gates on."""
+"""On the runner, after `uses: ./odd-status` through a setup: the four
+outputs the CI step passes as env have the shape a workflow gates on."""
 
 import json
 import os
@@ -13,13 +13,16 @@ def test_the_status_is_one_of_the_three():
     assert os.environ["STATUS"] in ("ok", "warning", "error")
 
 
-def test_the_report_is_the_answer():
-    assert os.environ["REPORT"].strip()
+def test_the_summary_is_one_line():
+    assert os.environ["SUMMARY"].strip() and "\n" not in os.environ["SUMMARY"]
 
 
 def test_the_todo_is_a_json_list():
     assert isinstance(json.loads(os.environ["TODO"]), list)
-    assert os.environ["SOURCE"] in ("rendering", "model")
+
+
+def test_the_report_is_the_answer():
+    assert os.environ["REPORT"].strip()
 
 
 def test_the_verdict_line():

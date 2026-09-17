@@ -22,14 +22,12 @@ fi
 case "$ODDYSSEY_CLI" in copilot|opencode|claude) ;; *)
   echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot, opencode or claude."; exit 1 ;;
 esac
-# The verdict the run must end with - the contract verdict.py parses.
-# The status and the todo are the package's own: get-status opens its
-# rendering with a verdict line and a todo line, computed by its rules
-# from every report, ruling and ledger row, and verdict.py reads them
-# from the answer. The model's part is the one-sentence summary. A
-# package that predates those lines gets the model's judgement on the
-# same anchor, the loop state's Action column (issues #24, #26, #31).
-INSTRUCTION='Print the rendering unchanged, its verdict and todo lines included, then end your answer with exactly one fenced json code block and nothing after it, of the form {"status": "ok" | "warning" | "error", "summary": "<one sentence>", "todo": [{"action": "<what to do next>", "why": "<the evidence>"}]}. The status copies the rendering'"'"'s verdict line. When the rendering has no verdict line, the status follows the Action column of the loop state table: ok when every lineage'"'"'s action is loop can rest or plan verified and the Regr. column is 0, error when a verification failed, a finding regressed or a report could not be read, warning otherwise, including when there is no loop state table; the todo then lists the next actions, most urgent first, and is empty when there is nothing to do.'
+# The contract verdict.py parses. The status and the todo are the
+# package's own: get-status opens its rendering with a verdict line and
+# a todo line, computed by its rules from every report, ruling and ledger
+# row, and the run prints them unchanged. The model's part is the
+# one-sentence summary.
+INSTRUCTION='Print the rendering unchanged, its verdict and todo lines included, then end your answer with exactly one fenced json code block and nothing after it: {"summary": "<one sentence on the verdict>"}.'
 # The command's arguments, handed to the launch step through a file: the
 # prompt is the caller's text and never goes through GITHUB_OUTPUT or
 # GITHUB_ENV.

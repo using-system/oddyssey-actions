@@ -6,20 +6,17 @@
 Reads the CLI's JSON output, takes the run's final answer (copilot: the
 last `assistant.message` with content; opencode: the text parts of the
 last message; claude: the `result` of the one result object), and reads
-the verdict from it in two layers. The status and the todo are the
+the verdict from it. The status and the todo are the
 `- verdict: <status> - <reasons>` and `- todo: <items>` lines the
 package's status rendering opens with - computed by its get-status
-rules, printed unchanged by the run - and the model's part is the one
-sentence of the fenced ```json block the prompt asked for:
-{"status": "ok"|"warning"|"error", "summary": str,
-"todo": [{"action": str, "why": str}, ...]}. When the rendering carries
-no verdict line (a package that predates it), the block's status and
-todo are the verdict, judged by the model; a missing or malformed block
-then is an `error` verdict whose summary says so. Writes `status`,
-`summary`, `todo` (a JSON array), `source` (`rendering` or `model`) and
+rules, printed unchanged by the run; the summary is the one sentence of
+the fenced ```json block the prompt asked for, {"summary": str}. An
+answer with no verdict line is an `error` verdict whose summary names
+the oddyssey version needed at minimum (ODDYSSEY_MINIMUM_VERSION at the
+repository root). Writes `status`, `summary`, `todo` (a JSON array) and
 `report` (the whole answer) as step outputs, the verdict and the report
-to the step summary, prints the verdict line, and exits 1 when the status
-reaches the --fail-on level, 0 otherwise.
+to the step summary, prints the verdict line, and exits 1 when the
+status reaches the --fail-on level, 0 otherwise.
 """
 
 from __future__ import annotations
@@ -32,10 +29,11 @@ import uuid
 from pathlib import Path
 
 LEVELS = {"ok": 0, "warning": 1, "error": 2}
-SOURCE_NOTE = {
-    "rendering": "The status and the todo are the package's own verdict (the rendering's verdict and todo lines); the summary is the model's.",
-    "model": "The answer carries no verdict line: the status and the todo are the model's judgement.",
-}
+MINIMUM = (
+    (Path(__file__).resolve().parents[2] / "ODDYSSEY_MINIMUM_VERSION")
+    .read_text()
+    .strip()
+)
 FENCE = re.compile(r"```json\s*\r?\n(.*?)\r?\n\s*```", re.DOTALL | re.IGNORECASE)
 # The rendering's two lines, as get-status prints them (`- verdict:
 # <status> - <reasons>`, `- todo: <item> · <item>` or `nothing to do`)
@@ -43,7 +41,7 @@ FENCE = re.compile(r"```json\s*\r?\n(.*?)\r?\n\s*```", re.DOTALL | re.IGNORECASE
 _LINE = r"^\s*[-*]?\s*\**\s*{key}\s*:?\**\s*:?\s*(?P<rest>.*?)\**\s*$"
 VERDICT_LINE = re.compile(_LINE.format(key="verdict"), re.IGNORECASE | re.MULTILINE)
 TODO_LINE = re.compile(_LINE.format(key="todo"), re.IGNORECASE | re.MULTILINE)
-DASH = re.compile(r"\s+[-\u2013\u2014]\s+")
+DASH = re.compile(r"\s+[-–—]\s+")
 
 
 def events(path: Path) -> list[dict]:
@@ -119,9 +117,8 @@ def flat(text: str) -> str:
 
 def rendered_verdict(answer: str) -> dict | None:
     """The status and the todo the package's rendering opens with, or None
-    when the answer carries no verdict line (a package that predates it).
-    The first verdict line is the rendering's: a model restating one at
-    the end never overrides it."""
+    when the answer carries no verdict line. The first verdict line is the
+    rendering's: a model restating one at the end never overrides it."""
     status = None
     for match in VERDICT_LINE.finditer(answer):
         rest = match.group("rest").strip("* ").lower()
@@ -135,7 +132,7 @@ def rendered_verdict(answer: str) -> dict | None:
     match = TODO_LINE.search(answer, match.end())
     rest = flat(match.group("rest").strip("* ")).rstrip(".") if match else ""
     if rest and rest.lower() != "nothing to do":
-        for item in rest.split(" \u00b7 "):
+        for item in rest.split(" · "):
             # `lineage: action - evidence`: the dash splits the action
             # from its evidence; an item with no dash is all action.
             parts = DASH.split(item, maxsplit=1)
@@ -150,53 +147,31 @@ def rendered_verdict(answer: str) -> dict | None:
     return {"status": status, "todo": todo}
 
 
-def parse_block(answer: str) -> tuple[dict, bool]:
-    """The verdict block of the answer, and whether it was well-formed."""
-    blocks = FENCE.findall(answer)
-    for block in reversed(blocks):
+def parse_block(answer: str) -> str:
+    """The model's summary, from the last fenced json block that carries
+    one; empty when none does."""
+    for block in reversed(FENCE.findall(answer)):
         try:
             data = json.loads(block)
         except json.JSONDecodeError:
             continue
-        if not isinstance(data, dict) or data.get("status") not in LEVELS:
-            continue
-        todo = data.get("todo")
-        if not isinstance(todo, list):
-            todo = []
-        clean = []
-        for item in todo:
-            if isinstance(item, dict) and item.get("action"):
-                clean.append(
-                    {
-                        "action": flat(str(item["action"])),
-                        "why": flat(str(item.get("why", ""))),
-                    }
-                )
-            elif isinstance(item, str) and item:
-                clean.append({"action": flat(item), "why": ""})
-        summary = data.get("summary")
-        return {
-            "status": data["status"],
-            "summary": flat(str(summary)) if summary else "",
-            "todo": clean,
-        }, True
-    return {
-        "status": "error",
-        "summary": "the run returned no verdict block (a fenced json block with status, summary and todo)",
-        "todo": [],
-    }, False
+        if isinstance(data, dict) and isinstance(data.get("summary"), str):
+            summary = flat(data["summary"])
+            if summary:
+                return summary
+    return ""
 
 
-def parse_verdict(answer: str) -> tuple[dict, bool]:
-    """The verdict: the rendering's status and todo with the block's summary
-    when the rendering carries a verdict line, the block alone otherwise.
-    Returns it with `source` set, and whether the block was well-formed."""
-    block, well_formed = parse_block(answer)
+def parse_verdict(answer: str) -> dict:
+    """The verdict: the rendering's status and todo, the block's summary."""
     rendered = rendered_verdict(answer)
     if rendered is None:
-        return {**block, "source": "model"}, well_formed
-    summary = block["summary"] if well_formed else "the run wrote no summary"
-    return {**rendered, "summary": summary, "source": "rendering"}, well_formed
+        return {
+            "status": "error",
+            "summary": f"no verdict line in the rendering: oddyssey {MINIMUM} or newer is needed",
+            "todo": [],
+        }
+    return {**rendered, "summary": parse_block(answer) or "the run wrote no summary"}
 
 
 def write_outputs(path: Path, verdict: dict, report: str) -> None:
@@ -205,7 +180,6 @@ def write_outputs(path: Path, verdict: dict, report: str) -> None:
             ("status", verdict["status"]),
             ("summary", verdict["summary"]),
             ("todo", json.dumps(verdict["todo"], ensure_ascii=False)),
-            ("source", verdict["source"]),
             ("report", report),
         ):
             delimiter = f"ODD_{uuid.uuid4().hex}"
@@ -214,10 +188,7 @@ def write_outputs(path: Path, verdict: dict, report: str) -> None:
 
 def write_summary(path: Path, verdict: dict, report: str) -> None:
     icon = {"ok": "✅", "warning": "⚠️", "error": "❌"}[verdict["status"]]
-    lines = [f"### odd-status: {icon} {verdict['status']}", ""]
-    if verdict["summary"]:
-        lines += [verdict["summary"], ""]
-    lines += [SOURCE_NOTE[verdict["source"]], ""]
+    lines = [f"### odd-status: {icon} {verdict['status']}", "", verdict["summary"], ""]
     if verdict["todo"]:
         lines.append("| # | Action | Why |")
         lines.append("| --- | --- | --- |")
@@ -253,15 +224,13 @@ def main() -> int:
     args = parser.parse_args()
 
     report = final_answer(args.cli, events(args.events)).strip()
-    verdict, well_formed = parse_verdict(report)
+    verdict = parse_verdict(report)
     if args.outputs:
         write_outputs(args.outputs, verdict, report)
     if args.summary:
         write_summary(args.summary, verdict, report)
     print(
-        f"odd-status: {verdict['status']} - {verdict['summary'] or 'no summary'}"
-        f" ({len(verdict['todo'])} todo, verdict from the {verdict['source']},"
-        f" summary block {'found' if well_formed else 'missing'})"
+        f"odd-status: {verdict['status']} - {verdict['summary']} ({len(verdict['todo'])} todo)"
     )
     if not report:
         print("::error::the run produced no answer.")

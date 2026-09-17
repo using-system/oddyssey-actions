@@ -12,14 +12,14 @@ so a later step can run an oddyssey prompt headlessly:
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
 | `model` | no | `gpt-5.6-luna` | The Copilot model the missions run on, as the CLI's model picker names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `COPILOT_MODEL` (which `--model` on a launch line overrides) and as `ODDYSSEY_MODEL`; never written to a config file. |
-| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. |
+| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.2`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. A tag is at least the minimum this release of the actions names ([`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION)): below it, the minimum is installed and the log and the summary say so. |
 
 ## Outputs
 
 | Output | What it is |
 | --- | --- |
 | `copilot-version` | The Copilot CLI version installed (`1.0.85`). |
-| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given). |
+| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.2`, or the SHA given). |
 | `model` | The `model` input, echoed. |
 
 The later steps also receive `ODDYSSEY_CLI=copilot` and
