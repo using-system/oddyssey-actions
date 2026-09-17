@@ -142,7 +142,7 @@ def test_a_missing_or_malformed_block_is_no_summary(block):
     }
 
 
-@pytest.mark.parametrize("answer", [NO_VERDICT_LINE, "no rendering at all", ""])
+@pytest.mark.parametrize("answer", [NO_VERDICT_LINE, "no rendering at all"])
 def test_no_verdict_line_is_an_error_naming_the_minimum(answer):
     assert verdict.MINIMUM.startswith("v")
     assert verdict.parse_verdict(answer) == {
@@ -159,6 +159,7 @@ def test_no_verdict_line_is_an_error_naming_the_minimum(answer):
         "- **verdict: ok** — every lineage can rest\n- **todo: nothing to do**\n",
         "* **Verdict:** OK – every lineage can rest\n* **Todo:** nothing to do\n",
         "verdict: ok\ntodo:\n",
+        "- **Verdict:** `ok` \u2014 every lineage can rest\n- **Todo:** `nothing to do`\n",
     ],
 )
 def test_a_dressed_up_rendering_still_reads(lines):
@@ -174,6 +175,14 @@ def test_prose_naming_a_verdict_is_not_the_rendering_s_line():
         is None
     )
     assert verdict.rendered_verdict("- checkout: verdict: ok\n") is None
+
+
+def test_backticks_around_each_todo_item_are_dressing():
+    answer = "- verdict: warning - due\n- todo: `a: b - c` · `d`\n"
+    assert verdict.rendered_verdict(answer)["todo"] == [
+        {"action": "a: b", "why": "c"},
+        {"action": "d", "why": ""},
+    ]
 
 
 def test_the_first_verdict_line_is_the_rendering_s():
@@ -280,3 +289,4 @@ def test_no_answer_fails_whatever_fail_on(tmp_path):
     assert code == 1
     assert "::error::the run produced no answer." in out
     assert outputs["status"] == "error"
+    assert outputs["summary"] == "the run produced no answer"

@@ -17,9 +17,9 @@ opens, or comments under your name.**
 
 | Where | What |
 | --- | --- |
-| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`; the `action.yml` is the wiring, every step's logic is a script under `<action>/scripts/`. |
+| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`; the `action.yml` is the wiring, every step's logic is a script under `<action>/scripts/` (the one resolve step every setup shares lives at `scripts/`, behind each setup's `resolve.sh`). |
 | `tests/<action>/` | Every action's tests, one tree: pytest runs each script of the checkout's action with fake tools on `PATH`; `test_runner.py`, marked `runner`, checks what the runner carries after the real action ran in CI. |
-| `.github/workflows/ci.yml` | `lint` (actionlint on the workflows, shellcheck on the actions' scripts, ruff) and `tests`, one matrix cell per action: its tests off the runner, the action for real on a bare checkout, its `runner` tests. |
+| `.github/workflows/ci.yml` | `lint` (actionlint on the workflows, shellcheck on the actions' scripts and the shared resolve step, ruff) and `tests`, one matrix cell per action: its tests off the runner, the action for real on a bare checkout, its `runner` tests. |
 | `.github/workflows/release.yml` | A `vX.Y.Z` tag creates the GitHub release and moves the `vX` floating major tag. |
 
 ## Building and testing
@@ -28,9 +28,9 @@ opens, or comments under your name.**
 # The workflows, at the version CI pins (actionlint parses workflows only)
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'
 
-# The actions' scripts (shellcheck on PATH; the actionlint image carries one:
-# docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 ...)
-shellcheck --severity=style ./*/scripts/*.sh
+# The actions' scripts and the shared resolve step (shellcheck on PATH; the actionlint
+# image carries one: docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 ...)
+shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh
 
 # The actions' tests, off the runner (the `runner` tests are deselected)
 uvx ruff@0.16.4 check ./*/scripts ./tests
@@ -52,6 +52,14 @@ test its verdict. Open the PR and read the cell's log and summary.
 - **The issue is the decision record.** When the implementation
   deviates from what the issue specified, record each amended choice as
   a comment on that issue, what changed and why, before opening the PR.
+- **The change is reviewed before the PR opens**, by a reader that did
+  not write it: a coding agent dispatches one review subagent on the
+  branch's diff against `main`, with the issue as the spec and AGENTS.md
+  with this file as the standard, and fixes what it finds (critical
+  and important findings fixed, minor ones fixed or named in the PR).
+  Every fix goes back to the reviewer, until a review comes back green
+  - nothing critical, nothing important: the push happens on a green
+  review, never on a fixed one.
 - **The PR title IS the release note.** We squash-merge with the PR
   title as the commit message, and versions follow
   [Conventional Commits](https://www.conventionalcommits.org/):

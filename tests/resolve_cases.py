@@ -14,7 +14,7 @@ MINIMUM = (
 assert re.fullmatch(r"v\d+\.\d+\.\d+", MINIMUM), MINIMUM
 _major, _minor, _patch = map(int, MINIMUM[1:].split("."))
 NEXT = f"v{_major}.{_minor}.{_patch + 1}"
-# v1.10.0 predates every minimum this repository names (the first was v1.12.2)
+# v1.10.0 predates the minimum
 TAGS = "\n".join(
     f"{i:040x}\trefs/tags/{tag}"
     for i, tag in enumerate(["v1.9.0", "v1.10.0", "v1.10.0-rc1", MINIMUM, NEXT])

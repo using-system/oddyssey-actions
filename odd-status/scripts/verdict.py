@@ -13,10 +13,11 @@ rules, printed unchanged by the run; the summary is the one sentence of
 the fenced ```json block the prompt asked for, {"summary": str}. An
 answer with no verdict line is an `error` verdict whose summary names
 the oddyssey version needed at minimum (ODDYSSEY_MINIMUM_VERSION at the
-repository root). Writes `status`, `summary`, `todo` (a JSON array) and
-`report` (the whole answer) as step outputs, the verdict and the report
-to the step summary, prints the verdict line, and exits 1 when the
-status reaches the --fail-on level, 0 otherwise.
+repository root), or says the run produced no answer. Writes `status`,
+`summary`, `todo` (a JSON array) and `report` (the whole answer) as step
+outputs, the verdict and the report to the step summary, prints the
+verdict line, and exits 1 when the status reaches the --fail-on level,
+0 otherwise.
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ MINIMUM = (
 FENCE = re.compile(r"```json\s*\r?\n(.*?)\r?\n\s*```", re.DOTALL | re.IGNORECASE)
 # The rendering's two lines, as get-status prints them (`- verdict:
 # <status> - <reasons>`, `- todo: <item> · <item>` or `nothing to do`)
-# and as a model may dress them up: bold markers, an en or em dash.
+# and as a model may dress them up: bold markers, backticks, an en or
+# em dash.
 _LINE = r"^\s*[-*]?\s*\**\s*{key}\s*:?\**\s*:?\s*(?P<rest>.*?)\**\s*$"
 VERDICT_LINE = re.compile(_LINE.format(key="verdict"), re.IGNORECASE | re.MULTILINE)
 TODO_LINE = re.compile(_LINE.format(key="todo"), re.IGNORECASE | re.MULTILINE)
@@ -121,8 +123,8 @@ def rendered_verdict(answer: str) -> dict | None:
     rendering's: a model restating one at the end never overrides it."""
     status = None
     for match in VERDICT_LINE.finditer(answer):
-        rest = match.group("rest").strip("* ").lower()
-        head = re.split(r"[\s*:]", rest, maxsplit=1)[0]
+        rest = match.group("rest").strip("*` ").lower()
+        head = re.split(r"[\s*:`]", rest, maxsplit=1)[0]
         if head in LEVELS:
             status = head
             break
@@ -130,12 +132,12 @@ def rendered_verdict(answer: str) -> dict | None:
         return None
     todo = []
     match = TODO_LINE.search(answer, match.end())
-    rest = flat(match.group("rest").strip("* ")).rstrip(".") if match else ""
+    rest = flat(match.group("rest").strip("*` ")).rstrip(".") if match else ""
     if rest and rest.lower() != "nothing to do":
         for item in rest.split(" · "):
             # `lineage: action - evidence`: the dash splits the action
             # from its evidence; an item with no dash is all action.
-            parts = DASH.split(item, maxsplit=1)
+            parts = DASH.split(item.strip("` "), maxsplit=1)
             action = parts[0].strip()
             if action:
                 todo.append(
@@ -163,14 +165,16 @@ def parse_block(answer: str) -> str:
 
 
 def parse_verdict(answer: str) -> dict:
-    """The verdict: the rendering's status and todo, the block's summary."""
+    """The verdict: the rendering's status and todo, the block's summary;
+    an `error` that says why when the answer carries no verdict line."""
     rendered = rendered_verdict(answer)
     if rendered is None:
-        return {
-            "status": "error",
-            "summary": f"no verdict line in the rendering: oddyssey {MINIMUM} or newer is needed",
-            "todo": [],
-        }
+        summary = (
+            f"no verdict line in the rendering: oddyssey {MINIMUM} or newer is needed"
+            if answer.strip()
+            else "the run produced no answer"
+        )
+        return {"status": "error", "summary": summary, "todo": []}
     return {**rendered, "summary": parse_block(answer) or "the run wrote no summary"}
 
 

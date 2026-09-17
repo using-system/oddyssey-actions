@@ -17,6 +17,16 @@
   exists. When the implementation deviates from what the issue
   specified, record each amended choice as a comment on that issue
   before opening the PR: the issue is the decision record.
+- **Every change is reviewed before its PR opens, by a reader that did
+  not write it.** A coding agent dispatches one review subagent on the
+  branch's diff against `main`, given the issue as the spec and this
+  file with CONTRIBUTING.md as the standard - never the session that
+  wrote the code - and acts on the findings before pushing: critical
+  and important ones fixed, minor ones fixed or named in the PR. Every
+  fix goes back to the reviewer, the same way, and the loop runs until
+  a review comes back green - nothing critical, nothing important: a
+  change is pushed on a green review, never on a fixed one. The checks
+  of "Run what CI runs before a PR" run again after the last fix.
 - The full contributor workflow lives in
   [CONTRIBUTING.md](CONTRIBUTING.md); where this file and
   CONTRIBUTING.md speak of the same thing, they say the same thing.
