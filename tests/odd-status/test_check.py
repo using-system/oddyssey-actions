@@ -21,22 +21,17 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     arguments = (tmp_path / "arguments.txt").read_text()
     # the prompt, a blank line, then the verdict contract verdict.py parses
     assert arguments.startswith(
-        "the checkout service\n\nThen end your answer with exactly one fenced json code block"
+        "the checkout service\n\nPrint the rendering unchanged, its verdict and todo lines included, "
+        "then end your answer with exactly one fenced json code block"
     )
     assert '{"status": "ok" | "warning" | "error"' in arguments
-    # Issue #24: what the memory records as settled is a fact, not a warning.
-    # Issue #26: the status follows the loop state's Action column; gaps,
-    # declined findings and deferrals are facts for the summary.
-    assert "The status follows the Action column of the loop state table" in arguments
+    # Issue #31: the status and the todo are the rendering's own lines; the
+    # model's judgement, on the loop state's Action column (issues #24,
+    # #26), is the fallback for a package that predates them.
+    assert "The status copies the rendering's verdict line." in arguments
+    assert "When the rendering has no verdict line" in arguments
     assert "ok when every lineage's action is loop can rest" in arguments
-    assert "warning when a lineage's action is verification due" in arguments
-    assert "when there is no loop state table at all" in arguments
-    assert "Telemetry gaps, declined findings" in arguments
     assert "error when a verification failed" in arguments
-    # Issue #28: a skipped ledger row is a fact the invariant reports, never a violation
-    assert "a report failing the contract" in arguments
-    assert "is a fact the invariant reports, never a violation" in arguments
-    assert "never let them set the status" in arguments
     assert arguments.endswith("is empty when there is nothing to do.\n")
     assert (
         "odd-status through copilot on gpt-5.6-luna - the checkout service"
@@ -48,7 +43,9 @@ def test_an_empty_prompt_is_the_whole_loop(script, tmp_path):
     result = script("odd-status", "check.sh").run(env(tmp_path, PROMPT=""))
     assert result.returncode == 0, result.log
     assert (
-        (tmp_path / "arguments.txt").read_text().startswith("\n\nThen end your answer")
+        (tmp_path / "arguments.txt")
+        .read_text()
+        .startswith("\n\nPrint the rendering unchanged")
     )
 
 

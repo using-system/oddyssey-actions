@@ -18,7 +18,7 @@ inputs:
     default: ""
   fail-on:
     description: >-
-      Fail the step when the judged status reaches this level: `warning`
+      Fail the step when the status reaches this level: `warning`
       (warning or error fail), `error` (error fails), or `none` (the
       outputs carry the verdict; the step still fails when the run
       produced no answer).
@@ -36,14 +36,22 @@ inputs:
 
 outputs:
   status:
-    description: The model's judgement of the loop's state - `ok`, `warning` or `error`.
+    description: >-
+      The loop's verdict - `ok`, `warning` or `error` - as the package's
+      own get-status rules compute it (the verdict line its rendering
+      opens with); the model's judgement when the package predates that line.
     value: ${{ steps.verdict.outputs.status }}
   summary:
-    description: One sentence on that judgement.
+    description: One sentence on that verdict, the model's.
     value: ${{ steps.verdict.outputs.summary }}
   todo:
-    description: The next actions, most urgent first, as a JSON array of {action, why}.
+    description: >-
+      The next actions, most urgent first, as a JSON array of {action, why} -
+      the rendering's todo line, or the model's when the package predates it.
     value: ${{ steps.verdict.outputs.todo }}
+  source:
+    description: Where the status and the todo come from - `rendering` or `model`.
+    value: ${{ steps.verdict.outputs.source }}
   report:
     description: The run's whole answer, the status as the packaged command renders it.
     value: ${{ steps.verdict.outputs.report }}

@@ -19,6 +19,7 @@ def test_the_report_is_the_answer():
 
 def test_the_todo_is_a_json_list():
     assert isinstance(json.loads(os.environ["TODO"]), list)
+    assert os.environ["SOURCE"] in ("rendering", "model")
 
 
 def test_the_verdict_line():

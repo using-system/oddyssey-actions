@@ -137,5 +137,6 @@ jobs:
           STATUS: ${{ steps.odd-status.outputs.status }}
           SUMMARY: ${{ steps.odd-status.outputs.summary }}
           TODO: ${{ steps.odd-status.outputs.todo }}
+          SOURCE: ${{ steps.odd-status.outputs.source }}
           REPORT: ${{ steps.odd-status.outputs.report }}
         run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 --with pyyaml==6.0.3 pytest -v -s -m runner "./tests/${ACTION}"

@@ -65,6 +65,7 @@ def test_parse_verdict_reads_the_block_and_normalises_todo():
     parsed, well_formed = verdict.parse_verdict(ANSWER)
     assert well_formed
     assert parsed["status"] == "warning"
+    assert parsed["source"] == "model"
     assert parsed["summary"] == "No report yet."
     assert parsed["todo"] == [
         {"action": "run /odd-observe", "why": "nothing measured"},
@@ -75,10 +76,10 @@ def test_parse_verdict_reads_the_block_and_normalises_todo():
 def test_fence_variants_and_flattening():
     for fence in ("```JSON", "```json "):
         block = fence + '\r\n{"status": "ok", "summary": "a\\nb  c"}\r\n```'
-        parsed, ok = verdict.parse_verdict(block)
+        parsed, ok = verdict.parse_block(block)
         assert ok and parsed["status"] == "ok" and parsed["summary"] == "a b c"
     nested = '````markdown\n```json\n{"status": "ok"}\n```\n````\n'
-    assert verdict.parse_verdict(nested)[0]["status"] == "ok"
+    assert verdict.parse_block(nested)[0]["status"] == "ok"
 
 
 def test_non_string_content_is_ignored():
@@ -90,7 +91,7 @@ def test_non_string_content_is_ignored():
 
 def test_parse_verdict_takes_the_last_valid_block():
     answer = '```json\n{"status": "ok"}\n```\ntext\n```json\n{"status": "error", "todo": []}\n```\n'
-    parsed, _ = verdict.parse_verdict(answer)
+    parsed, _ = verdict.parse_block(answer)
     assert parsed["status"] == "error"
 
 
@@ -107,7 +108,95 @@ def test_missing_or_malformed_block_is_an_error(answer):
     parsed, well_formed = verdict.parse_verdict(answer)
     assert not well_formed
     assert parsed["status"] == "error"
+    assert parsed["source"] == "model"
     assert "no verdict block" in parsed["summary"]
+
+
+# The rendering get-status opens with (oddyssey#601): the verdict and the
+# todo lines are the package's own, the model writes the summary only.
+RENDERED = (
+    "# ODD loop status\n\n"
+    "- verdict: warning - checkout / grafana / prod: verification due\n"
+    "- todo: checkout / grafana / prod: verification due - 3 commits since 2026-09-10-1200-checkout.md"
+    " (observe); last verify PASS · start the loop: /odd-instrument-otel or /odd-observe\n\n"
+    "## Loop state\n\n| Lineage | Action |\n|---|---|\n| checkout / grafana / prod | verification due |\n\n"
+    "- checkout / grafana / prod: last report 2026-09-10-1200-checkout.md (observe); verdict 1 of 8 rulings closed\n\n"
+    "Verdict: the loop is due.\n\n"
+    '```json\n{"status": "ok", "summary": "Three commits await a verification.", '
+    '"todo": [{"action": "the models own todo", "why": "ignored"}]}\n```\n'
+)
+
+
+def test_the_rendering_s_verdict_and_todo_win_over_the_block():
+    parsed, well_formed = verdict.parse_verdict(RENDERED)
+    assert well_formed
+    assert parsed["source"] == "rendering"
+    assert parsed["status"] == "warning"
+    assert parsed["summary"] == "Three commits await a verification."
+    assert parsed["todo"] == [
+        {
+            "action": "checkout / grafana / prod: verification due",
+            "why": "3 commits since 2026-09-10-1200-checkout.md (observe); last verify PASS",
+        },
+        {"action": "start the loop: /odd-instrument-otel or /odd-observe", "why": ""},
+    ]
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        "- verdict: ok - every lineage can rest\n- todo: nothing to do\n",
+        "- **verdict: ok** \u2014 every lineage can rest\n- **todo: nothing to do**\n",
+        "* **Verdict:** OK \u2013 every lineage can rest\n* **Todo:** nothing to do\n",
+        "verdict: ok\ntodo:\n",
+    ],
+)
+def test_a_dressed_up_rendering_still_reads(lines):
+    rendered = verdict.rendered_verdict("# ODD loop status\n\n" + lines)
+    assert rendered == {"status": "ok", "todo": []}
+
+
+def test_prose_naming_a_verdict_is_not_the_rendering_s_line():
+    assert (
+        verdict.rendered_verdict(
+            "Verdict: the loop rests.\n- verdict 1 of 8 rulings closed\n"
+        )
+        is None
+    )
+    assert verdict.rendered_verdict("- checkout: verdict: ok\n") is None
+
+
+def test_the_first_verdict_line_is_the_rendering_s():
+    answer = (
+        "- verdict: error - a finding regressed\n- todo: rule on F1 - regressed.\n\n"
+        "My reading:\n- verdict: ok - all good\n- todo: nothing to do\n"
+    )
+    assert verdict.rendered_verdict(answer) == {
+        "status": "error",
+        "todo": [{"action": "rule on F1", "why": "regressed"}],
+    }
+
+
+def test_the_action_declares_every_output_the_script_writes(tmp_path):
+    import yaml
+
+    declared = yaml.safe_load((SCRIPT.parents[1] / "action.yml").read_text())["outputs"]
+    out = tmp_path / "out"
+    verdict.write_outputs(out, verdict.parse_verdict(RENDERED)[0], "report")
+    written = {
+        line.partition("<<")[0] for line in out.read_text().splitlines() if "<<" in line
+    }
+    assert written == set(declared)
+
+
+def test_a_rendering_without_a_block_keeps_its_verdict():
+    answer = "# ODD loop status\n\n- verdict: error - a finding regressed\n- todo: rule on F2 - regressed\n"
+    parsed, well_formed = verdict.parse_verdict(answer)
+    assert not well_formed
+    assert parsed["status"] == "error"
+    assert parsed["source"] == "rendering"
+    assert parsed["summary"] == "the run wrote no summary"
+    assert parsed["todo"] == [{"action": "rule on F2", "why": "regressed"}]
 
 
 def run(tmp_path: Path, cli: str, text: str, fail_on: str) -> tuple[int, str, dict]:
@@ -150,8 +239,22 @@ def test_outputs_and_gate(tmp_path):
     assert outputs["status"] == "warning"
     assert json.loads(outputs["todo"])[0]["action"] == "run /odd-observe"
     assert outputs["report"] == ANSWER.rstrip("\n")
-    assert "odd-status: warning" in out
-    assert (tmp_path / "summary.md").read_text().startswith("### odd-status: ⚠️ warning")
+    assert outputs["source"] == "model"
+    assert "odd-status: warning" in out and "verdict from the model" in out
+    summary = (tmp_path / "summary.md").read_text()
+    assert summary.startswith("### odd-status: ⚠️ warning")
+    assert "carries no verdict line" in summary
+
+
+def test_outputs_carry_the_rendering_s_verdict(tmp_path):
+    code, out, outputs = run(tmp_path, "opencode", opencode_stream(RENDERED), "warning")
+    assert code == 1
+    assert outputs["status"] == "warning"
+    assert outputs["source"] == "rendering"
+    assert outputs["summary"] == "Three commits await a verification."
+    assert json.loads(outputs["todo"])[1]["action"].startswith("start the loop")
+    assert "verdict from the rendering" in out
+    assert "the package's own verdict" in (tmp_path / "summary.md").read_text()
 
 
 @pytest.mark.parametrize("fail_on,code", [("none", 0), ("warning", 1), ("error", 0)])
