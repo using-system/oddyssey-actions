@@ -41,8 +41,9 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: shellcheck the actions' scripts
         # actionlint parses workflows only; an action's steps are the
-        # scripts under <action>/scripts/ (shellcheck ships on the runner).
-        run: shellcheck --severity=style ./*/scripts/*.sh
+        # scripts under <action>/scripts/, the shared resolve step under
+        # scripts/ (shellcheck ships on the runner).
+        run: shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh
       - name: ruff
         run: |
           uvx ruff@0.16.4 check ./*/scripts ./tests
@@ -53,7 +54,9 @@ jobs:
     # (each script of the checkout's action run with fake tools on PATH),
     # then the action for real on this bare checkout and the tree's
     # `runner` tests on what the runner carries. A setup runs on both
-    # runner families, the newest oddyssey release and a pinned one;
+    # runner families, the newest oddyssey release and an exact pin at
+    # the minimum (ODDYSSEY_MINIMUM_VERSION: the cell proves the pin
+    # holds, not the floor);
     # odd-status runs once per CLI, on ubuntu and latest, through that
     # CLI's setup. `uses:` takes no expression, so each action has its
     # step here, gated on the cell - adding an action is its tests/ tree,
@@ -75,7 +78,7 @@ jobs:
       matrix:
         action: [setup-copilot, setup-opencode, setup-claude]
         os: [ubuntu-latest, macos-latest]
-        oddyssey-version: [latest, v1.12.0]
+        oddyssey-version: [latest, v1.12.2]
         include:
           - { action: odd-status, cli: copilot, os: ubuntu-latest, oddyssey-version: latest }
           - { action: odd-status, cli: opencode, os: ubuntu-latest, oddyssey-version: latest }
@@ -137,6 +140,5 @@ jobs:
           STATUS: ${{ steps.odd-status.outputs.status }}
           SUMMARY: ${{ steps.odd-status.outputs.summary }}
           TODO: ${{ steps.odd-status.outputs.todo }}
-          SOURCE: ${{ steps.odd-status.outputs.source }}
           REPORT: ${{ steps.odd-status.outputs.report }}
         run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 --with pyyaml==6.0.3 pytest -v -s -m runner "./tests/${ACTION}"

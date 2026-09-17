@@ -15,7 +15,7 @@ step can run an oddyssey prompt:
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
 | `model` | no | `claude-sonnet-5` | The Claude model the missions run on, as `claude --model` names it: an alias for the latest of a tier (`fable`, `opus`, `sonnet`, `haiku`) or a full id (`claude-sonnet-5`, `claude-haiku-4-5`). The default is the cheapest Claude model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md). Exported to the later steps as `ODDYSSEY_MODEL`; never written to a config file. |
-| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. |
+| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.2`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. A tag is at least the minimum this release of the actions names ([`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION)): below it, the minimum is installed and the log and the summary say so. |
 | `anthropic-api-key` | one of the two | | An Anthropic API key from the [Claude Console](https://platform.claude.com), a secret. |
 | `claude-oauth-token` | one of the two | | A Claude OAuth token from `claude setup-token`, a secret: it authenticates with the subscription of the person who ran it (Pro, Max, Team or Enterprise), for one year. |
 
@@ -27,7 +27,7 @@ the setup, both fail it too.
 | Output | What it is |
 | --- | --- |
 | `claude-version` | The Claude Code version installed (`2.1.267`). |
-| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given). |
+| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.2`, or the SHA given). |
 | `model` | The `model` input, echoed. |
 
 The later steps also receive `ODDYSSEY_CLI=claude` and
@@ -134,4 +134,5 @@ commit SHA when that must not move under you.
 ## Pinning
 
 `@v1` follows the latest release of this major; an exact tag or a
-commit SHA freezes the action. `oddyssey-version` freezes the package.
+commit SHA freezes the action. `oddyssey-version` freezes the package:
+a tag at or above the minimum, or a commit SHA.

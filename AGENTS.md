@@ -17,6 +17,16 @@
   exists. When the implementation deviates from what the issue
   specified, record each amended choice as a comment on that issue
   before opening the PR: the issue is the decision record.
+- **Every change is reviewed before its PR opens, by a reader that did
+  not write it.** A coding agent dispatches one review subagent on the
+  branch's diff against `main`, given the issue as the spec and this
+  file with CONTRIBUTING.md as the standard - never the session that
+  wrote the code - and acts on the findings before pushing: critical
+  and important ones fixed, minor ones fixed or named in the PR. Every
+  fix goes back to the reviewer, the same way, and the loop runs until
+  a review comes back green - nothing critical, nothing important: a
+  change is pushed on a green review, never on a fixed one. The checks
+  of "Run what CI runs before a PR" run again after the last fix.
 - The full contributor workflow lives in
   [CONTRIBUTING.md](CONTRIBUTING.md); where this file and
   CONTRIBUTING.md speak of the same thing, they say the same thing.
@@ -97,6 +107,14 @@ obviously fake.
 - The apm-cli pin an action installs the package with is oddyssey's
   (its `CONTRIBUTING.md`); bump it here when oddyssey bumps it, never
   ahead of it.
+- **One minimum oddyssey version per release of the actions**, the one
+  line of `ODDYSSEY_MINIMUM_VERSION` at the repository root: what
+  every action here reads from the package exists from that version
+  on. The one resolve step, `scripts/resolve-oddyssey.sh` at the root
+  behind each setup's `resolve.sh`, installs the minimum in place of a
+  tag below it and says so; a full commit SHA is taken as is. Raising
+  the minimum is that one line, plus the `ci` matrix cell that pins
+  it.
 - Every `uses:` in an action or a workflow is pinned to a full commit
   SHA with the version in a trailing comment. An expression never goes
   into a `run:` block directly; it passes through `env:`.
@@ -129,12 +147,13 @@ obviously fake.
   `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (both setups; follow
   oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`,
   `pyyaml==`, `pytest==` with its `--exclude-newer` date, and `ruff@`
-  (ci), the
-  `v1.12.0` matrix cell (ci; every cell of the `tests` job is a required
-  check's name in the `main` ruleset, `tests (<action>, <os>,
-  <version>)` - change both together, and a new cell is added to the
-  ruleset's required checks when it lands), the versions
-  CONTRIBUTING.md quotes.
+  (ci), `ODDYSSEY_MINIMUM_VERSION` (the root file) with the matrix cell
+  that pins it, `v1.12.2` (ci), the versions CONTRIBUTING.md quotes.
+  The `main` ruleset's required checks are the `lint` job and the
+  `latest` cells of the `tests` job, `tests (<action>, <os>, latest[,
+  <cli>])` - never the pinned cell, whose name changes with the
+  minimum; a new action's `latest` cell is added to the ruleset when
+  it lands.
 - **No token reaches code the repository does not control.** A step
   that downloads or runs a third party's code carries no `GITHUB_TOKEN`
   unless that code provably needs one, and the PR says for what. A
@@ -185,9 +204,10 @@ obviously fake.
   workflow pins:
   `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'`
   (the ignore: actionlint 1.7.12 predates the `copilot-requests` scope)
-  It parses workflows only: the actions' scripts go through
-  `shellcheck --severity=style ./*/scripts/*.sh` (shellcheck on PATH; the
-  actionlint image carries one: `docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 --severity=style ./*/scripts/*.sh`),
+  It parses workflows only: the actions' scripts and the shared
+  resolve step go through
+  `shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh` (shellcheck on PATH; the
+  actionlint image carries one: `docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 --severity=style ./scripts/*.sh ./*/scripts/*.sh`),
   the same pass CI runs.
 - The actions' tests, off the runner:
   `uvx ruff@0.16.4 check ./*/scripts ./tests`, the same with

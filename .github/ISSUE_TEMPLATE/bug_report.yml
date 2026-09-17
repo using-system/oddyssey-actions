@@ -19,7 +19,7 @@ body:
     attributes:
       label: Runner
       description: The runner label, and the CLI and oddyssey versions the action printed
-      placeholder: "ubuntu-latest, Copilot CLI 1.0.85, oddyssey v1.12.1"
+      placeholder: "ubuntu-latest, Copilot CLI 1.0.85, oddyssey v1.12.2"
     validations:
       required: true
   - type: dropdown

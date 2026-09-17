@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Check the inputs before anything is fetched.
 #
-# Reads:  MODEL, BASE_URL, REQUESTED - the model, openai-base-url and oddyssey-version inputs
+# Reads:  MODEL, BASE_URL - the model and openai-base-url inputs (oddyssey-version is the resolve step's)
 # Writes: nothing - exits 1 with ::error:: on the first input that is not a plain value
 set -euo pipefail
 # Each input reaches a config file, $GITHUB_OUTPUT or $GITHUB_ENV:
@@ -23,8 +23,3 @@ if ! printf '%s' "$BASE_URL" | grep -Eq '^https://[A-Za-z0-9._~:/?#@!$&+,;=%-]+$
   echo "::error::openai-base-url must be an https:// URL made of URL characters, got '${BASE_URL}'."
   exit 1
 fi
-case "$REQUESTED" in
-  ''|*[!A-Za-z0-9._-]*)
-    echo "::error::oddyssey-version must be a tag, a full commit SHA or latest, got '${REQUESTED}'."
-    exit 1 ;;
-esac

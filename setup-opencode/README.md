@@ -15,7 +15,7 @@ run an oddyssey prompt:
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
 | `model` | no | `openai/gpt-5.6-luna` | The model the missions run on, as the endpoint names it. The default is the cheapest model of the [oddyssey benchmark](https://github.com/using-system/oddyssey/blob/main/.llms-benchmark/README.md), under its OpenRouter id. Declared to opencode under the `openai-compatible` provider; only this model is declared. |
-| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.1`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. |
+| `oddyssey-version` | no | `latest` | The oddyssey release to install: a release tag (`v1.12.2`), a full commit SHA (the one immutable form), or `latest`, the newest release tag at the time the workflow runs. A tag is at least the minimum this release of the actions names ([`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION)): below it, the minimum is installed and the log and the summary say so. |
 | `openai-base-url` | no | `https://openrouter.ai/api/v1` | The OpenAI-compatible endpoint (`/v1/chat/completions` behind it) the model is served from. |
 | `openai-api-key` | yes | | The API key of that endpoint, a secret. |
 
@@ -24,7 +24,7 @@ run an oddyssey prompt:
 | Output | What it is |
 | --- | --- |
 | `opencode-version` | The opencode version installed (`1.18.31`). |
-| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.1`, or the SHA given). |
+| `oddyssey-version` | The oddyssey ref resolved and installed (`v1.12.2`, or the SHA given). |
 | `model` | The model in opencode's form (`openai-compatible/openai/gpt-5.6-luna`). |
 
 The later steps also receive `ODDYSSEY_CLI=opencode` and
@@ -112,4 +112,5 @@ move under you.
 ## Pinning
 
 `@v1` follows the latest release of this major; an exact tag or a
-commit SHA freezes the action. `oddyssey-version` freezes the package.
+commit SHA freezes the action. `oddyssey-version` freezes the package:
+a tag at or above the minimum, or a commit SHA.

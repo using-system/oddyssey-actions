@@ -6,7 +6,7 @@ import pytest
 ENV = {
     "APM_CLI_VERSION": "0.30.0",
     "APM_CLI_PINNED_ON": "2026-09-16",
-    "VERSION": "v1.12.0",
+    "VERSION": "v1.12.2",
     "MODEL": "gpt-5.6-luna",
 }
 DEPLOY = 'for s in a b c; do mkdir -p "$HOME/.agents/skills/$s" && touch "$HOME/.agents/skills/$s/SKILL.md"; done'
@@ -26,7 +26,7 @@ def test_installs_at_the_pin_and_exports_the_cli_and_the_model(script, fake_cli)
         "--global",
         "--target",
         "copilot",
-        "using-system/oddyssey#v1.12.0",
+        "using-system/oddyssey#v1.12.2",
     ]
     assert result.outputs == {"skills": "3"}
     assert result.env == {
@@ -50,6 +50,6 @@ def test_fails_when_apm_deployed_no_skill(script, fake_cli):
     fake_cli("uvx")
     result = script("setup-copilot", "install-package.sh").run(ENV)
     assert result.returncode == 1
-    assert "::error::apm 0.30.0 deployed no skill for oddyssey v1.12.0" in result.stdout
+    assert "::error::apm 0.30.0 deployed no skill for oddyssey v1.12.2" in result.stdout
     assert result.env == {}
     assert result.outputs == {}
