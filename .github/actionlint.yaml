@@ -1,0 +1,8 @@
+# actionlint 1.7.12 (the version `ci` pins, the latest release as of
+# 2026-09-18) predates the `ubuntu-26.04` runner label and reports it
+# unknown; declaring it here is the mechanism actionlint provides for
+# a label it does not ship yet. Remove the entry once a release lists
+# the label itself.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

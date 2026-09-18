@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: actionlint
@@ -77,12 +77,12 @@ jobs:
       fail-fast: false
       matrix:
         action: [setup-copilot, setup-opencode, setup-claude]
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-26.04, macos-latest]
         oddyssey-version: [latest, v1.12.2]
         include:
-          - { action: odd-status, cli: copilot, os: ubuntu-latest, oddyssey-version: latest }
-          - { action: odd-status, cli: opencode, os: ubuntu-latest, oddyssey-version: latest }
-          - { action: odd-status, cli: claude, os: ubuntu-latest, oddyssey-version: latest }
+          - { action: odd-status, cli: copilot, os: ubuntu-26.04, oddyssey-version: latest }
+          - { action: odd-status, cli: opencode, os: ubuntu-26.04, oddyssey-version: latest }
+          - { action: odd-status, cli: claude, os: ubuntu-26.04, oddyssey-version: latest }
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
