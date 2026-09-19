@@ -20,11 +20,13 @@ def test_valid_inputs_name_the_cli_and_write_the_arguments(script, tmp_path):
     assert result.outputs == {"cli": "copilot"}
     arguments = (tmp_path / "arguments.txt").read_text()
     # the prompt, a blank line, then the contract verdict.py parses: the
-    # rendering's own verdict and todo lines, the model's one-sentence summary
+    # model's one-sentence summary and the flags it ran the script with
     assert arguments == (
         "the checkout service\n\nPrint the rendering unchanged, its verdict and todo lines included, "
         "then end your answer with exactly one fenced json code block and nothing after it: "
-        '{"summary": "<one sentence on the verdict>"}.\n'
+        '{"summary": "<one sentence on the verdict>", "flags": [<the flags you passed '
+        "after --render on your last odd_status.py run, one string per flag and per "
+        "value, [] when none>]}.\n"
     )
     assert (
         "odd-status through copilot on gpt-5.6-luna - the checkout service"
