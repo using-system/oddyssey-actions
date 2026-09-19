@@ -37,6 +37,8 @@ REJECTS = [
     ("", "oddyssey-version must be a tag, a full commit SHA or latest"),
     ("v1.10.0\nv1.9.0", "oddyssey-version must be a tag, a full commit SHA or latest"),
     ("v1.10.0;rm", "oddyssey-version must be a tag, a full commit SHA or latest"),
+    # an accented letter: a range in a case pattern would admit it in some locales
+    ("v1.10.0é", "oddyssey-version must be a tag, a full commit SHA or latest"),
     ("v9.9.9", "is not a release tag of using-system/oddyssey"),
     ("v1.10.0-rc1", "is not a release tag of using-system/oddyssey"),
 ]
