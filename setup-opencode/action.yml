@@ -91,6 +91,20 @@ runs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      with:
+        # The uv release this action installs - pinned, bumped here on
+        # purpose (AGENTS.md lists it): a version the pinned setup-uv
+        # bundles a checksum table for, so the binary is verified against
+        # that table, fixed with the action's SHA, on every platform (a
+        # `checksum:` input would name one platform's); the asset's URL
+        # alone comes from Astral's versions manifest at run time. No
+        # token: the download is anonymous, from Astral's mirror or the
+        # release's assets. No Actions cache: nothing is hashed for a key,
+        # restored or saved (setup-uv still reads the checkout's uv.toml
+        # and pyproject.toml, and runs `uv python find` there).
+        version: "0.12.12"
+        github-token: ""
+        enable-cache: false
 
     - name: Install the oddyssey package for the opencode target
       id: package

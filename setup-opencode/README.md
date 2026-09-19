@@ -42,7 +42,8 @@ reads (`{file:...}`); it is never written to `GITHUB_ENV`, so no later
 step of the job sees it, and never printed. The file and the replaced
 global config live for the job: a hosted runner discards them with the
 workspace, a self-hosted one keeps them. The action itself reads no
-other token: every download it makes is anonymous.
+other token: every download it makes - opencode, uv, apm-cli, the
+package - is anonymous.
 
 ## What lands where
 
@@ -52,6 +53,19 @@ other token: every download it makes is anonymous.
   that release's assets on github.com and checks it against the
   SHA-256 the action carries for it (opencode publishes no checksum
   file), failing on a mismatch; no installer script runs.
+- uv at the release the action pins (`0.12.12`, bumped by a release of
+  this action), installed by `astral-sh/setup-uv` at a pinned commit
+  into the runner's tool cache and put on the `PATH` of the later
+  steps: the binary is downloaded from Astral's mirror, falling back to
+  the release's assets on github.com, anonymously (the action passes no
+  token), its URL read from Astral's versions manifest (`astral-sh/versions`,
+  fetched at run time) and its checksum from the table that commit of
+  setup-uv bundles for the version - the manifest can break the
+  download, never swap the binary. setup-uv's Actions cache is off:
+  nothing is hashed for a key, restored or saved; it still reads the
+  checkout's `uv.toml` and `pyproject.toml` (for a `cache-dir`) and runs
+  `uv python find` there. It runs `uvx` for the package install below
+  and `uv run` for the config step.
 - The oddyssey package at the resolved ref, in **user scope**
   (`apm install --global --target opencode --only apm`, apm-cli at
   oddyssey's own pin, its dependency closure bounded to what PyPI
@@ -67,7 +81,13 @@ other token: every download it makes is anonymous.
   the model, registers the package's MCP server as the package's own
   manifest defines it (apm cannot register it at user scope for
   opencode), and turns opencode's auto-update off, so the version
-  installed is the version that runs.
+  installed is the version that runs. The provider package is one
+  opencode bundles into the binary the action verified (its
+  `BUNDLED_PROVIDERS` table at `v1.18.31` loads
+  `@ai-sdk/openai-compatible` 2.0.41 from the build, no registry
+  fetch), so the code handed the key is the pinned binary's; a provider
+  not in that table would be installed at launch, which is why the
+  action declares this one only.
 
 ## Example workflow
 

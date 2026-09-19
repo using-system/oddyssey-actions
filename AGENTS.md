@@ -166,7 +166,11 @@ obviously fake.
   `curl -fsSL https://downloads.claude.ai/claude-code-releases/stable`,
   its manifest verified at run time),
   `APM_CLI_VERSION` and `APM_CLI_PINNED_ON` (both setups; follow
-  oddyssey's pin), `PYYAML_VERSION` (setup-opencode), `ACTIONLINT_VERSION`,
+  oddyssey's pin), the uv `version:` every `setup-uv` step passes (the
+  three setups and `ci`; a version the pinned setup-uv bundles a
+  checksum for, `src/download/checksum/known-checksums.json` at its
+  SHA - bump it with the action), `PYYAML_VERSION` (setup-opencode),
+  `ACTIONLINT_VERSION`,
   `pyyaml==`, `pytest==` with its `--exclude-newer` date, and `ruff@`
   (ci), `ODDYSSEY_MINIMUM_VERSION` (the root file) with the matrix cell
   that pins it, `v1.12.2` (ci), the versions CONTRIBUTING.md quotes.
