@@ -15,9 +15,11 @@ if ! printf '%s' "$minimum" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
 fi
 # Resolved first: a wrong input costs nothing else. The value
 # reaches $GITHUB_OUTPUT: a case pattern sees it whole, so a second
-# line cannot pass.
+# line cannot pass. The characters are listed, not ranged: a range in
+# a case pattern follows the locale, and A-Za-z admits an accented
+# letter in some.
 case "$REQUESTED" in
-  ''|*[!A-Za-z0-9._-]*)
+  ''|*[!ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-]*)
     echo "::error::oddyssey-version must be a tag, a full commit SHA or latest, got '${REQUESTED}'."
     exit 1 ;;
 esac
