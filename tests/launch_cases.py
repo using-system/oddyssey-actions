@@ -11,6 +11,7 @@ INVALID_COMMANDS = [
     "odd status",
     "odd/status",
     "odd_status",
+    "1odd-status",
     "-p",
     "odd\nstatus",
 ]
@@ -41,6 +42,20 @@ def check_invalid_command_fails_before_the_cli(
 ):
     argv = fake_cli(cli)
     env = arguments(tmp_path, command)
+    if cli == "copilot":
+        env["GITHUB_TOKEN"] = "ghs_x"
+    if cli == "claude":
+        env.update(credential(tmp_path))
+    result = script(action, f"run-{cli}.sh").run(env)
+    assert result.returncode == 1
+    assert "::error::COMMAND must be a packaged command's name" in result.stdout
+    assert not argv.called
+
+
+def check_unset_command_fails_before_the_cli(script, fake_cli, tmp_path, action, cli):
+    argv = fake_cli(cli)
+    env = arguments(tmp_path, "odd-status")
+    del env["COMMAND"]
     if cli == "copilot":
         env["GITHUB_TOKEN"] = "ghs_x"
     if cli == "claude":

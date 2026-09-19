@@ -12,6 +12,7 @@ from launch_cases import (
     check_copilot_launches_scoped_with_the_token_stripped,
     check_invalid_command_fails_before_the_cli,
     check_opencode_launches_the_packaged_command_without_a_token,
+    check_unset_command_fails_before_the_cli,
 )
 
 ACTION = "odd-status"
@@ -24,6 +25,11 @@ def test_invalid_command_fails_before_the_cli(script, fake_cli, tmp_path, cli, c
     check_invalid_command_fails_before_the_cli(
         script, fake_cli, tmp_path, ACTION, cli, command
     )
+
+
+@pytest.mark.parametrize("cli", ["copilot", "opencode", "claude"])
+def test_unset_command_fails_before_the_cli(script, fake_cli, tmp_path, cli):
+    check_unset_command_fails_before_the_cli(script, fake_cli, tmp_path, ACTION, cli)
 
 
 def test_copilot_launches_scoped_with_the_token_stripped(script, fake_cli, tmp_path):

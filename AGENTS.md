@@ -70,12 +70,14 @@ obviously fake.
   line per CLI lives at the repository root, once -
   `scripts/run-<cli>.sh`, generic over the packaged command it runs,
   named by the step's `COMMAND` - behind a `run-<cli>.sh` shim in each
-  prompt-running action, and reads `ODDYSSEY_CLI` and `ODDYSSEY_MODEL`;
-  the shared cases in `tests/launch_cases.py` are replayed by each
-  such action's `test_launch.py` on its command.
+  prompt-running action: the action's check step reads `ODDYSSEY_CLI`
+  to pick the launch step, the script reads `ODDYSSEY_MODEL`. The
+  shared cases in `tests/launch_cases.py` are replayed by each such
+  action's `test_launch.py` on its command.
 - **Every action carries its tests under `tests/<action>/`**, the one
-  place for them, pytest at the version `ci` pins. Two kinds, one
-  tree: a test off the runner runs one script of the checkout's
+  place for them (a case module several actions replay - `*_cases.py` -
+  sits next to `tests/conftest.py`), pytest at the version `ci` pins.
+  Two kinds, one tree: a test off the runner runs one script of the checkout's
   `<action>/scripts/` through `tests/conftest.py` - its environment
   given, its exit code, output, `GITHUB_OUTPUT`, `GITHUB_ENV`,
   `GITHUB_PATH` and summary read back - with fake tools on `PATH`

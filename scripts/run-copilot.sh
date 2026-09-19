@@ -2,7 +2,7 @@
 # Run a packaged command through the Copilot CLI, scoped - the one Copilot
 # launch line, run by every action that runs a prompt, behind its shim.
 #
-# Reads:  COMMAND - the packaged command to run (odd-status, ...): lowercase, digits, dashes
+# Reads:  COMMAND - the packaged command to run (odd-status, ...): a lowercase letter, then lowercase, digits, dashes
 #         ARGUMENTS_FILE, EVENTS - the arguments the action's check step wrote, where the run's events go
 #         ODDYSSEY_MODEL - the model a setup action exported
 #         GITHUB_TOKEN - the token input, this step's alone
@@ -13,8 +13,8 @@ set -euo pipefail
 # The characters are listed, not ranged: a range in a case pattern
 # follows the locale, and a-z admits an uppercase letter in some.
 case "${COMMAND:-}" in
-  ''|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*|-*)
-    echo "::error::COMMAND must be a packaged command's name (lowercase, digits, dashes), got '${COMMAND:-}'."
+  ''|[!abcdefghijklmnopqrstuvwxyz]*|*[!abcdefghijklmnopqrstuvwxyz0123456789-]*)
+    echo "::error::COMMAND must be a packaged command's name (a lowercase letter first, then lowercase, digits, dashes), got '${COMMAND:-}'."
     exit 1 ;;
 esac
 if [ -z "${GITHUB_TOKEN:-}" ]; then
