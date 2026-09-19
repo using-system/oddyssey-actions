@@ -42,7 +42,17 @@ arguments="$(cat "$ARGUMENTS_FILE")"
 # checkout's .claude/ - no session written to disk, the updater off so
 # the version installed is the version that runs, and the credential in
 # the CLI's variable for this process alone, read from the setup's file.
-env "${variable}=$(cat "$CLAUDE_CREDENTIAL_FILE")" DISABLE_AUTOUPDATER=1 \
-  claude -p "/${COMMAND} ${arguments}" --model "$ODDYSSEY_MODEL" \
-  --permission-mode bypassPermissions --setting-sources user \
-  --no-session-persistence --output-format json < /dev/null > "$EVENTS"
+# The variable is exported in a subshell of this script, never handed
+# to `env` (or any program) as `VAR=value` on its argument vector: a
+# process's arguments are readable by other users on Linux
+# (/proc/<pid>/cmdline) and land in execve audit records; its
+# environment is neither. The file is read first, so a read that
+# fails fails the step instead of launching the CLI with an empty
+# variable.
+credential="$(cat "$CLAUDE_CREDENTIAL_FILE")"
+(
+  export "${variable}=${credential}" DISABLE_AUTOUPDATER=1
+  exec claude -p "/${COMMAND} ${arguments}" --model "$ODDYSSEY_MODEL" \
+    --permission-mode bypassPermissions --setting-sources user \
+    --no-session-persistence --output-format json < /dev/null > "$EVENTS"
+)
