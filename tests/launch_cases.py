@@ -164,6 +164,28 @@ def check_claude_launches_scoped_with_the_credential_from_the_file(
     assert (tmp_path / "events.jsonl").read_text().startswith('{"type":"result"')
 
 
+def check_claude_never_puts_the_credential_on_an_argument_vector(
+    script, fake_cli, tmp_path, action, command
+):
+    # A process's arguments are readable by other users on Linux and land
+    # in execve audit records, its environment is neither: the credential
+    # is exported in a subshell of the script, never handed to `env` (or
+    # any program) as `VAR=value` on its argument vector.
+    env_argv = fake_cli("env")
+    argv = fake_cli(
+        "claude",
+        stdout='{"type":"result","subtype":"success","is_error":false,"result":"ok"}\n',
+        script='printf \'%s\' "${CLAUDE_CODE_OAUTH_TOKEN:-unset}" > "$0.token"',
+    )
+    result = script(action, "run-claude.sh").run(
+        {**arguments(tmp_path, command), **credential(tmp_path)}
+    )
+    assert result.returncode == 0, result.log
+    assert not env_argv.called
+    assert (tmp_path / "bin" / "claude.token").read_text() == "sk-ant-oat01-placeholder"
+    assert not any("sk-ant-oat01-placeholder" in arg for arg in argv.list())
+
+
 def check_claude_reads_an_api_key_into_its_own_variable(
     script, fake_cli, tmp_path, action, command
 ):

@@ -6,6 +6,7 @@ from launch_cases import (
     check_claude_fails_when_the_environment_would_replace_the_credential,
     check_claude_fails_without_the_setup_credential,
     check_claude_launches_scoped_with_the_credential_from_the_file,
+    check_claude_never_puts_the_credential_on_an_argument_vector,
     check_claude_reads_an_api_key_into_its_own_variable,
     check_copilot_fails_on_an_empty_token,
     check_copilot_fails_when_the_cli_would_prefer_another_token,
@@ -63,6 +64,14 @@ def test_claude_launches_scoped_with_the_credential_from_the_file(
     script, fake_cli, tmp_path
 ):
     check_claude_launches_scoped_with_the_credential_from_the_file(
+        script, fake_cli, tmp_path, ACTION, COMMAND
+    )
+
+
+def test_claude_never_puts_the_credential_on_an_argument_vector(
+    script, fake_cli, tmp_path
+):
+    check_claude_never_puts_the_credential_on_an_argument_vector(
         script, fake_cli, tmp_path, ACTION, COMMAND
     )
 
