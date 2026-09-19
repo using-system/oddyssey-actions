@@ -85,6 +85,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: using-system/oddyssey-actions/setup-opencode@v1
         with:
           openai-api-key: ${{ secrets.OPENROUTER_API_KEY }}
@@ -101,7 +103,10 @@ turns the answer into outputs a workflow can gate on.
 A later step that launches opencode with `--auto` lets the model run any
 shell command the runner allows, read and write the checkout and the
 package's directory, reach the network, and read the key file through
-the provider (and through a shell, since the runner's user owns it).
+the provider (and through a shell, since the runner's user owns it -
+as it can read the job token `actions/checkout` persists in
+`.git/config` at its defaults: the example sets
+`persist-credentials: false`, since nothing here uses git with it).
 Keep the job at `contents: read`, never put such a step on a trigger
 that carries untrusted input (`issue_comment`, `pull_request_target`, a
 fork's `pull_request`), and treat the answer as untrusted text before it

@@ -98,6 +98,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: using-system/oddyssey-actions/setup-claude@v1
         with:
           model: haiku # optional; claude-sonnet-5 without it
@@ -120,7 +122,10 @@ A later step that launches Claude Code with
 requires) lets the model run any shell command the runner allows, read
 and write the checkout and the package's directory, reach the network,
 and read the credential file through a shell, since the runner's user
-owns it. The actions of this repository add `--setting-sources user`
+owns it (as it can read the job token `actions/checkout` persists in
+`.git/config` at its defaults: the example sets
+`persist-credentials: false`, since nothing here uses git with it).
+The actions of this repository add `--setting-sources user`
 (nothing from the checkout's `.claude/`: no project settings, no
 hooks), `--no-session-persistence` and `DISABLE_AUTOUPDATER=1`; the
 checkout's `CLAUDE.md` still reaches the run, since the CLI reads it

@@ -78,6 +78,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: using-system/oddyssey-actions/setup-copilot@v1
         with:
           model: claude-sonnet-5 # optional; gpt-5.6-luna without it
@@ -97,11 +99,17 @@ A step that launches the CLI (`--allow-all-tools`, which
 non-interactive mode requires, grants a shell; the actions of this
 repository add `--add-dir "$HOME/.agents/skills"` in place of
 `--allow-all-paths`, `--no-custom-instructions`,
-`--disable-builtin-mcps`, `--secret-env-vars GITHUB_TOKEN` and
-`--no-auto-update`) lets the model run any shell command the runner
-allows, read and write the checkout and the skills' directory, reach
-the network, and read whatever the prompt and the skills put in front
-of it. Keep the job at `contents: read` and `copilot-requests: write`,
+`--disable-builtin-mcps`, `--secret-env-vars GITHUB_TOKEN` - the token
+kept out of the shells' and MCP servers' environment and redacted from
+the output, while the CLI process still holds it, readable by a shell
+running as the same user - and `--no-auto-update`) lets the model run
+any shell command the runner allows, read and write the checkout and
+the skills' directory, reach the network, read the token through the
+CLI's process environment, and read whatever the prompt and the skills
+put in front of it. With `actions/checkout` at its defaults the job
+token also sits in the checkout's `.git/config`: the example sets
+`persist-credentials: false`, since nothing here uses git with it.
+Keep the job at `contents: read` and `copilot-requests: write`,
 never put the step on a trigger that carries untrusted input
 (`issue_comment`, `pull_request_target`, a fork's `pull_request`), and
 treat the answer as untrusted text before it reaches a place that acts
