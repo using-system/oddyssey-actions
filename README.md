@@ -28,10 +28,13 @@ action that runs a prompt knows which CLI to launch and how.
 - uses: using-system/oddyssey-actions/<action>@v1
 ```
 
-Pin the floating major tag (`v1`, moved on every release of that
-major), an exact release tag (`v1.0.0`), or a commit SHA. Each action's
-README states its inputs, its outputs, how the launch step
-authenticates and one complete example workflow.
+Pin the floating major tag (`v1`, moved forward on every release of
+that major), an exact release tag (`v1.0.0`), or a commit SHA. A commit
+SHA freezes the action; an exact tag is never deleted or rewound (the
+repository's `v*` tag ruleset blocks both, for admins too), though a
+writer can still move it forward along `main`. Each action's README
+states its inputs, its outputs, how the launch step authenticates and
+one complete example workflow.
 
 Each release of the actions names the oddyssey version it needs at
 minimum, in [`ODDYSSEY_MINIMUM_VERSION`](ODDYSSEY_MINIMUM_VERSION): a

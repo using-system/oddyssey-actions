@@ -33,7 +33,11 @@ Steps:
      too, so the only recovery is "Re-run all jobs" on that run once
      the cause is fixed (`gh run rerun <run-id>`); the workflow is
      idempotent - an existing release is kept, the major tag is moved
-     again. If it is still `queued`/`in_progress`, jump to step 5 and
+     again onto the same commit. A re-run replays the workflow as the
+     tagged commit carries it, not as `main` does now: a fix to the
+     workflow reaches the next tag, never a stored run, and a re-run
+     of an older release's run fails its version check once a newer
+     release exists. If it is still `queued`/`in_progress`, jump to step 5 and
      watch it instead of offering a new version.
 
 2. **Show what would ship**: the last tag, then
@@ -51,8 +55,11 @@ Steps:
    patch / minor / major with the recommendation first, each option
    showing its resulting `vX.Y.Z`. An exact version given as argument
    must be strict `X.Y.Z` AND greater than the last tag - reject
-   anything else (the workflow only gates the shape; monotonicity is
-   this command's job).
+   anything else (the workflow refuses a version that does not sort
+   above every release already cut, and a tag whose commit is behind
+   the highest release or the floating major tag; this command catches
+   it before the tag is pushed, since a refused tag stays on the
+   remote).
 
 4. **Confirm before firing**: show verbatim the two commands about to
    run -

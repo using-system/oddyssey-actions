@@ -133,6 +133,8 @@ commit SHA when that must not move under you.
 
 ## Pinning
 
-`@v1` follows the latest release of this major; an exact tag or a
-commit SHA freezes the action. `oddyssey-version` freezes the package:
-a tag at or above the minimum, or a commit SHA.
+`@v1` follows the latest release of this major; a commit SHA freezes
+the action; an exact tag is never deleted or rewound (the repository's
+`v*` tag ruleset blocks both, for admins too), though a writer can
+still move it forward along `main`. `oddyssey-version` freezes the
+package: a tag at or above the minimum, or a commit SHA.
