@@ -20,3 +20,9 @@ updates:
       interval: weekly
     commit-message:
       prefix: "ci(deps)"
+  - package-ecosystem: github-actions
+    directory: /setup-claude
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci(deps)"

@@ -35,6 +35,9 @@ config = {
     "autoupdate": False,
     "provider": {
         "openai-compatible": {
+            # a provider opencode bundles into its binary (its
+            # BUNDLED_PROVIDERS table): loaded from the verified build,
+            # never fetched from a registry at launch - keep it one of those
             "npm": "@ai-sdk/openai-compatible",
             "name": "OpenAI-compatible endpoint (setup-opencode)",
             "options": {"baseURL": base_url, "apiKey": "{file:" + key_file + "}"},

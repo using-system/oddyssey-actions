@@ -39,8 +39,9 @@ on). Nothing is set on the caller's step. A user token passed as that
 action's `token` input is the alternative when the run must be billed
 to a user; a `COPILOT_GITHUB_TOKEN` or `GH_TOKEN` in the environment
 fails that step instead, since the CLI would prefer it over the input.
-This action itself reads no token at all: every download it makes is
-anonymous, and it validates nothing beyond the CLI answering.
+This action itself reads no token at all: every download it makes -
+the CLI, uv, apm-cli, the package - is anonymous, and it validates
+nothing beyond the CLI answering.
 
 ## What lands where
 
@@ -50,6 +51,18 @@ anonymous, and it validates nothing beyond the CLI answering.
   that release's assets on github.com and checks it against the
   release's `SHA256SUMS` itself, failing when the checksums cannot be
   read or do not match; no installer script runs.
+- uv at the release the action pins (`0.12.12`, bumped by a release of
+  this action), installed by `astral-sh/setup-uv` at a pinned commit
+  into the runner's tool cache and put on the `PATH` of the later
+  steps: the binary is downloaded from Astral's mirror, falling back to
+  the release's assets on github.com, anonymously (the action passes no
+  token), its URL read from Astral's versions manifest (`astral-sh/versions`,
+  fetched at run time) and its checksum from the table that commit of
+  setup-uv bundles for the version - the manifest can break the
+  download, never swap the binary. setup-uv's Actions cache is off:
+  nothing is hashed for a key, restored or saved; it still reads the
+  checkout's `uv.toml` and `pyproject.toml` (for a `cache-dir`) and runs
+  `uv python find` there. It runs `uvx` for the package install below.
 - The oddyssey package at the resolved ref, in **user scope**
   (`apm install --global --target copilot`, apm-cli at oddyssey's own
   pin, its dependency closure bounded to what PyPI carried on the day

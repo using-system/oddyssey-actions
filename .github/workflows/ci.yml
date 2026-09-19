@@ -39,6 +39,11 @@ jobs:
           ./actionlint -color -ignore 'unknown permission scope "copilot-requests"'
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # The same pin as the setup actions (AGENTS.md lists it):
+          # verified against the table this setup-uv bundles, no token.
+          version: "0.12.12"
+          github-token: ""
       - name: shellcheck the actions' scripts
         # actionlint parses workflows only; an action's steps are the
         # scripts under <action>/scripts/, the shared ones (the resolve
@@ -109,6 +114,11 @@ jobs:
           persist-credentials: false
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          # The same pin as the setup actions (AGENTS.md lists it):
+          # verified against the table this setup-uv bundles, no token.
+          version: "0.12.12"
+          github-token: ""
       - name: The action's tests, off the runner
         # the closure (pluggy, iniconfig, packaging) bounded to the pin's date
         run: uv run --no-project --exclude-newer 2026-09-16 --with pytest==9.0.2 --with pyyaml==6.0.3 pytest -v "./tests/${ACTION}"

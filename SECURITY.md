@@ -13,8 +13,9 @@ GitHub's private vulnerability reporting:
 
 You can expect an acknowledgement within a few days. Relevant scope
 includes what the actions download onto a runner (a coding CLI from its
-vendor's release channel, apm-cli from PyPI through `uvx`, the oddyssey
-package from GitHub) and the release workflow. Tokens are the caller's:
+vendor's release channel, uv through `astral-sh/setup-uv`, apm-cli from
+PyPI through `uvx`, the oddyssey package from GitHub) and the release
+workflow. Tokens are the caller's:
 an action never reads a caller's secret (the ambient `github.token` is
 the most it passes on, and its README says to what), and a report that
 involves one names it by variable only.

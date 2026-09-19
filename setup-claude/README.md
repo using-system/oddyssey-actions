@@ -49,7 +49,8 @@ file into the CLI's own variable, `ANTHROPIC_API_KEY` or
 `CLAUDE_CODE_OAUTH_TOKEN` by the kind, for that one process. The file
 lives for the job: a hosted runner discards it with the workspace, a
 self-hosted one keeps it. The action itself reads no other token: every
-download it makes is anonymous.
+download it makes - Claude Code, uv, apm-cli, the package - is
+anonymous.
 
 Which credential: an API key is billed to the Console organisation and
 can be shared across repositories; an OAuth token is tied to one
@@ -70,6 +71,18 @@ environment rather than let one silently replace the input.
   when the manifest cannot be read or the checksum does not match; no
   installer script runs, nothing comes from npm. The manifest's GPG
   signature is not verified.
+- uv at the release the action pins (`0.12.12`, bumped by a release of
+  this action), installed by `astral-sh/setup-uv` at a pinned commit
+  into the runner's tool cache and put on the `PATH` of the later
+  steps: the binary is downloaded from Astral's mirror, falling back to
+  the release's assets on github.com, anonymously (the action passes no
+  token), its URL read from Astral's versions manifest (`astral-sh/versions`,
+  fetched at run time) and its checksum from the table that commit of
+  setup-uv bundles for the version - the manifest can break the
+  download, never swap the binary. setup-uv's Actions cache is off:
+  nothing is hashed for a key, restored or saved; it still reads the
+  checkout's `uv.toml` and `pyproject.toml` (for a `cache-dir`) and runs
+  `uv python find` there. It runs `uvx` for the package install below.
 - The oddyssey package at the resolved ref, in **user scope**
   (`apm install --global --target claude`, apm-cli at oddyssey's own
   pin, its dependency closure bounded to what PyPI carried on the day
