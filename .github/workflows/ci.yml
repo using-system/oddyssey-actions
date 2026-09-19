@@ -41,8 +41,9 @@ jobs:
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: shellcheck the actions' scripts
         # actionlint parses workflows only; an action's steps are the
-        # scripts under <action>/scripts/, the shared resolve step under
-        # scripts/ (shellcheck ships on the runner).
+        # scripts under <action>/scripts/, the shared ones (the resolve
+        # step, the launch line per CLI) under scripts/ (shellcheck ships
+        # on the runner).
         run: shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh
       - name: ruff
         run: |

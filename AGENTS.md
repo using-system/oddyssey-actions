@@ -67,8 +67,12 @@ obviously fake.
   The README of a setup action shows the prompt-running action
   (`odd-status`) as the next step, never a hand-written `copilot -p` or
   `opencode run`; CI smokes a setup through that action too. The launch
-  line per CLI lives in the prompt-running action, once, and reads
-  `ODDYSSEY_CLI` and `ODDYSSEY_MODEL`.
+  line per CLI lives at the repository root, once -
+  `scripts/run-<cli>.sh`, generic over the packaged command it runs,
+  named by the step's `COMMAND` - behind a `run-<cli>.sh` shim in each
+  prompt-running action, and reads `ODDYSSEY_CLI` and `ODDYSSEY_MODEL`;
+  the shared cases in `tests/launch_cases.py` are replayed by each
+  such action's `test_launch.py` on its command.
 - **Every action carries its tests under `tests/<action>/`**, the one
   place for them, pytest at the version `ci` pins. Two kinds, one
   tree: a test off the runner runs one script of the checkout's
@@ -205,7 +209,7 @@ obviously fake.
   `docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'`
   (the ignore: actionlint 1.7.12 predates the `copilot-requests` scope)
   It parses workflows only: the actions' scripts and the shared
-  resolve step go through
+  scripts at the root go through
   `shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh` (shellcheck on PATH; the
   actionlint image carries one: `docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 --severity=style ./scripts/*.sh ./*/scripts/*.sh`),
   the same pass CI runs.

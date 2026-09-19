@@ -17,9 +17,9 @@ opens, or comments under your name.**
 
 | Where | What |
 | --- | --- |
-| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`; the `action.yml` is the wiring, every step's logic is a script under `<action>/scripts/` (the one resolve step every setup shares lives at `scripts/`, behind each setup's `resolve.sh`). |
+| `<action>/action.yml`, `<action>/README.md` | One composite action per directory, consumed as `using-system/oddyssey-actions/<action>@<ref>`; the `action.yml` is the wiring, every step's logic is a script under `<action>/scripts/` (the one resolve step every setup shares and the one launch line per CLI every prompt-running action shares live at `scripts/`, behind a `resolve.sh` in each setup and a `run-<cli>.sh` in each prompt-running action). |
 | `tests/<action>/` | Every action's tests, one tree: pytest runs each script of the checkout's action with fake tools on `PATH`; `test_runner.py`, marked `runner`, checks what the runner carries after the real action ran in CI. |
-| `.github/workflows/ci.yml` | `lint` (actionlint on the workflows, shellcheck on the actions' scripts and the shared resolve step, ruff) and `tests`, one matrix cell per action: its tests off the runner, the action for real on a bare checkout, its `runner` tests. |
+| `.github/workflows/ci.yml` | `lint` (actionlint on the workflows, shellcheck on the actions' scripts and the shared scripts at the root, ruff) and `tests`, one matrix cell per action: its tests off the runner, the action for real on a bare checkout, its `runner` tests. |
 | `.github/workflows/release.yml` | A `vX.Y.Z` tag creates the GitHub release and moves the `vX` floating major tag. |
 
 ## Building and testing
@@ -28,7 +28,7 @@ opens, or comments under your name.**
 # The workflows, at the version CI pins (actionlint parses workflows only)
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color -ignore 'unknown permission scope "copilot-requests"'
 
-# The actions' scripts and the shared resolve step (shellcheck on PATH; the actionlint
+# The actions' scripts and the shared scripts at the root (shellcheck on PATH; the actionlint
 # image carries one: docker run --rm -v "$PWD:/repo" -w /repo --entrypoint shellcheck rhysd/actionlint:1.7.12 ...)
 shellcheck --severity=style ./scripts/*.sh ./*/scripts/*.sh
 

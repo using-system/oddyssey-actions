@@ -71,6 +71,7 @@ runs:
       shell: bash
       env:
         SCRIPT: ${{ github.action_path }}/scripts/run-copilot.sh
+        COMMAND: odd-status
         ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
         EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
         # The token of this step and of no other: the CLI reads it from
@@ -84,6 +85,7 @@ runs:
       shell: bash
       env:
         SCRIPT: ${{ github.action_path }}/scripts/run-opencode.sh
+        COMMAND: odd-status
         ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
         EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
       run: "$SCRIPT"
@@ -93,6 +95,7 @@ runs:
       shell: bash
       env:
         SCRIPT: ${{ github.action_path }}/scripts/run-claude.sh
+        COMMAND: odd-status
         ARGUMENTS_FILE: ${{ runner.temp }}/odd-status-arguments.txt
         EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
         # No token here: the credential is setup-claude's, in the file
