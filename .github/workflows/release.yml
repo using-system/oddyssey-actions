@@ -7,12 +7,17 @@ on:
   # The workflow creates the GitHub release for exactly that tag, its
   # notes generated from the PR titles merged since the previous
   # release, and moves the floating major tag (v1) to it - after
-  # checking the tagged commit is on main: a tag on any other commit is
-  # a release nobody reviewed, on every consumer pinned to @vX.
-  # Re-running a failed run is safe: an existing release is kept, the
-  # major tag is moved again. The v* tag ruleset blocks deleting or
-  # rewinding a tag, for everyone: the major tag's move below is a
-  # fast-forward along main, the only move the ruleset allows.
+  # checking the tagged commit is on main (a tag on any other commit is
+  # a release nobody reviewed, on every consumer pinned to @vX), that
+  # the version sorts above every release already cut, and that the
+  # commit is at or after the highest release's and the one the major
+  # tag names: the move below is always a fast-forward along main, never
+  # a step back onto an older revision. Re-running a failed run is safe:
+  # an existing release is kept, the major tag is moved again onto the
+  # same commit. The v* tag ruleset (deletion and non-fast-forward
+  # blocked, no bypass) is the server-side half: it refuses a rewind or
+  # a deletion of any release tag, for everyone, including a re-run of a
+  # stored run of an older revision of this workflow.
   push:
     tags: ["v*"]
 
@@ -46,6 +51,46 @@ jobs:
             echo "::error::tag ${TAG} points at ${GITHUB_SHA}, which is not on main - a release is cut from main only."
             exit 1
           fi
+      - name: Check the version and the commit only ever move forward
+        # Two facts read from the remote, and the step fails when either
+        # cannot be read: the version must sort strictly above the
+        # highest vX.Y.Z already cut (a superseded revision is never
+        # published under a version that looks newer - a new major
+        # included), and the tagged commit must descend from the commit
+        # of that highest release and from the commit refs/tags/vX names
+        # now (or be that commit itself, on a re-run): the move below is
+        # then a fast-forward along main, never a step back. A re-run
+        # sees its own tag on the remote, hence the exclusion; no vX.Y.Z
+        # at all is the first release ever, no vX the first of that
+        # major. The fetches reach 200 commits back: a release further
+        # behind fails the ancestor check, the safe side.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MAJOR="${TAG%%.*}"
+          tags="$(git ls-remote --tags --refs origin 'v*')"
+          highest="$(printf '%s\n' "$tags" | awk '{print $2}' | sed 's#^refs/tags/##' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vxF "$TAG" | sort -V | tail -1 || true)"
+          if [ -n "$highest" ] && [ "$(printf '%s\n%s\n' "$highest" "$TAG" | sort -V | tail -1)" != "$TAG" ]; then
+            echo "::error::tag ${TAG} does not sort above ${highest}, the highest release already cut - a version only ever goes up."
+            exit 1
+          fi
+          echo "highest release before ${TAG}: ${highest:-none}"
+          floors="$highest"
+          if printf '%s\n' "$tags" | awk '{print $2}' | grep -qxF "refs/tags/${MAJOR}"; then
+            floors="${floors:+$floors }${MAJOR}"
+          else
+            echo "no ${MAJOR} tag yet - first release of this major"
+          fi
+          for floor in $floors; do
+            git fetch --no-tags --depth=200 origin "+refs/tags/${floor}:refs/tags/${floor}"
+            current="$(git rev-parse "refs/tags/${floor}^{commit}")"
+            if ! git merge-base --is-ancestor "$current" "$GITHUB_SHA"; then
+              echo "::error::${floor} names ${current}, which is not an ancestor of ${GITHUB_SHA} - releasing ${TAG} there would be a step back (or ${floor} is beyond the 200 commits fetched); a release only ever moves forward along main."
+              exit 1
+            fi
+            echo "${floor} names ${current}, an ancestor of ${GITHUB_SHA}: ${TAG} is at or after it"
+          done
       - name: Create the GitHub release with generated notes
         env:
           GH_TOKEN: ${{ github.token }}

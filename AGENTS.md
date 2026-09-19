@@ -202,12 +202,20 @@ obviously fake.
   fork's PR**: it is gated on the PR's head repository in the workflow,
   and the repository's fork-approval policy stays at all external
   contributors while such a step exists.
-- **The release path publishes only what went through `main`**: the
-  release workflow checks the tagged commit is an ancestor of `main`
-  before it creates the release or moves the floating major tag, the
-  floating tag is annotated, `contents: write` lives on that one job,
-  and the `v*` tag ruleset blocks deleting or rewinding a release tag,
-  for admins too: a floating tag only ever moves forward along `main`.
+- **The release path publishes only what went through `main`, and only
+  forward**: before it creates the release or moves the floating major
+  tag, the release workflow checks the tagged commit is an ancestor of
+  `main`, the version sorts above every release already cut, and the
+  commits of that highest release and of the major tag are ancestors of
+  the tagged one (or the same, on a re-run); the floating tag is
+  annotated and `contents: write` lives on that one job. The `v*` tag
+  ruleset (deletion and non-fast-forward blocked, no bypass actor) is
+  the server-side half, for admins too: a release tag is never deleted
+  or rewound, and a floating tag only ever moves forward along `main`. A
+  fix to the workflow on `main` does not reach the runs already stored:
+  a re-run of an old release run replays that tag's revision of the
+  workflow, and the ruleset (or restricting who may re-run Actions runs)
+  is what closes that path.
 - **An action's README discloses what lands on the consumer's runner
   and with which credentials**: what is downloaded and from where, what
   is pinned and what resolves at run time, which token each step sees,
