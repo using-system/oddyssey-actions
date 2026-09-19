@@ -27,6 +27,21 @@
   a review comes back green - nothing critical, nothing important: a
   change is pushed on a green review, never on a fixed one. The checks
   of "Run what CI runs before a PR" run again after the last fix.
+- **Every change gets a security review of its diff, alongside the
+  review subagent and at the same time.** A `/security-review` of the
+  branch's diff against `main` runs in parallel with the review
+  subagent: it reports only what the PR introduces - trust boundaries,
+  injection, secrets, workflow and launch-line changes - never the spec
+  or the standard, which stay the review subagent's. Its findings are
+  handled like the review subagent's: critical and important ones
+  fixed, minor ones fixed or named in the PR, and every fix goes back
+  through both passes until both come back green. The checks of "Run
+  what CI runs before a PR" run again after the last fix of either
+  pass. Neither pass replaces the other: the review subagent judges
+  conformance to the issue and to this file with CONTRIBUTING.md, the
+  security review judges what the diff exposes. A full security audit
+  of the repository is a separate thing, run on demand by the
+  maintainer.
 - The full contributor workflow lives in
   [CONTRIBUTING.md](CONTRIBUTING.md); where this file and
   CONTRIBUTING.md speak of the same thing, they say the same thing.

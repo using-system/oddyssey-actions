@@ -60,6 +60,19 @@ test its verdict. Open the PR and read the cell's log and summary.
   Every fix goes back to the reviewer, until a review comes back green
   - nothing critical, nothing important: the push happens on a green
   review, never on a fixed one.
+- **The diff gets a security review too**, alongside the review
+  subagent and at the same time: a `/security-review` of the branch's
+  diff against `main` runs in parallel with it and reports only what
+  the PR introduces (trust boundaries, injection, secrets, workflow and
+  launch-line changes), never the spec or the standard, which stay the
+  review subagent's. Its findings are handled the same way (critical
+  and important fixed, minor fixed or named in the PR), and every fix
+  goes back through both passes until both come back green; the checks
+  of "Building and testing" run again after the last fix of either
+  pass. Neither pass replaces the other: the review subagent judges
+  conformance to the issue and to AGENTS.md with this file, the
+  security review judges what the diff exposes. A full security audit
+  of the repository is separate, run on demand by the maintainer.
 - **The PR title IS the release note.** We squash-merge with the PR
   title as the commit message, and versions follow
   [Conventional Commits](https://www.conventionalcommits.org/):
