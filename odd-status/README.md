@@ -14,7 +14,7 @@ installed, and turns its verdict into outputs a workflow can gate on:
 
 | Input | Required | Default | What it is |
 | --- | --- | --- | --- |
-| `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
+| `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments, and the bound of the scope the verdict is recomputed with (name the service, the stack and the environment as the reports name them); empty for the whole loop; never starting with a dash. |
 | `fail-on` | no | `none` | Fail the step when the status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
 | `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode and Claude Code steps receive none from this action (the checkout's `persist-credentials: false` keeps the job token out of the checkout's `.git/config`, see "What this grants"). The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user, readable by the model's shell as the Copilot bullet below says. Passed as given. |
 
@@ -22,23 +22,54 @@ installed, and turns its verdict into outputs a workflow can gate on:
 
 | Output | What it is |
 | --- | --- |
-| `status` | The loop's verdict, `ok`, `warning` or `error`: the package's own, as its `get-status` rules compute it (the verdict line its rendering opens with). `error` when the answer carries none. |
+| `status` | The loop's verdict, `ok`, `warning` or `error`: the package's own, recomputed on the runner by its `get-status` script on the checkout, scoped as the `prompt` names (the verdict line its rendering opens with), never a line of the model's answer. `error` when the script cannot compute, and the step then fails whatever `fail-on` says. |
 | `summary` | One sentence on that verdict, the model's. |
-| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`: the rendering's todo line. |
+| `todo` | The next actions, most urgent first, as a JSON array of `{action, why}`: the todo line of that same rendering. |
 | `report` | The run's whole answer, the status as the packaged command renders it. |
 
-The intelligence is the package's: `get-status` opens its rendering
-with `- verdict: <status> - <reasons>` and `- todo: <the next
-actions>`, computed by its rules from every stored report, ruling and
-ledger row, and the action reads those two lines from the answer; the
-model writes the one-sentence summary, in the JSON block the action
-asks it to end with (a missing block leaves the summary saying so). The
-run's summary carries the verdict, the todo as a table and the report.
-An answer with no verdict line is an `error` whose summary names the
-oddyssey version needed at minimum - the one every setup action of this
-release installs at least
-([`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION)); a run with
-no answer fails whatever `fail-on` says.
+The intelligence is the package's, and the gate is bound to it:
+`get-status` opens its rendering with `- verdict: <status> - <reasons>`
+and `- todo: <the next actions>`, computed by its rules from every
+stored report, ruling and ledger row. The model's part is the
+one-sentence summary and the flags it ran the script with, in the JSON
+block the action asks it to end with. The verdict step then runs the
+script the setup deployed (`get-status/scripts/odd_status.py` under the
+CLI's skills directory) again on the checkout, and `status` and `todo`
+are that rendering's two lines - never a line of the model's answer.
+What the run reports bounds the recomputation this far and no further:
+
+- the scope (`--service`, `--stack`, `--env`, `--full`) is kept only
+  where the `prompt` input names it - each value a whole word of the
+  prompt, so name the service, the stack and the environment as the
+  reports name them; an empty prompt is the whole loop and takes no
+  scope. A scope the prompt does not name is refused, and so is a scope
+  that matches no stored report (the package's own count): narrowed to
+  nothing, a status reads `warning` whatever the loop holds, and a gate
+  that saw no report has gated nothing - whether the run was steered or
+  the prompt names the service otherwise than the reports do;
+- the run's rulings (`--ruled`, `--runtime`, `--non-runtime`) are its
+  own judgment and are dropped: the gate reads the package's rules over
+  the committed memory alone, and the log and the run's summary say how
+  many rulings were dropped. A ruling that should hold is persisted in
+  `.odd/decisions.md` or `.odd/entry-classifications.md` - reviewed,
+  committed - and the script reads it on every run; the model's one-run
+  rulings stay visible in its report;
+- anything else is refused: `--repository` (no other clone is on the
+  runner), a path, a date, a rendering switch.
+
+So whoever can put text in front of the model - a report under `.odd/`,
+an instruction file - cannot print the verdict, narrow the status to a
+scope the caller did not ask for, or rule a regression away; what the
+run passed is in the log and the summary (`recomputed with ...`), and
+when the answer's own verdict line differs from the recomputed one, both
+say so. That binding holds against text: the run also has a shell, as
+"What this grants" says, and a run that edits `.odd/` or the package's
+directory edits what the recomputation reads. The run's summary carries
+the verdict, the todo as a table, the report and the package's
+rendering. A refused flag, a script that is not found (the setup deploys
+it from [`ODDYSSEY_MINIMUM_VERSION`](../ODDYSSEY_MINIMUM_VERSION) on) or
+a script that fails is an `error` whose summary says why, and the step
+fails whatever `fail-on` says, as a run with no answer does.
 
 ## Which CLI
 

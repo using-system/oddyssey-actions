@@ -13,7 +13,9 @@ inputs:
     description: >-
       What the status is about, in the caller's words - a service, a
       stack, a question (`the checkout service on prod`). Passed to the
-      packaged command as its arguments; empty for the whole loop.
+      packaged command as its arguments, and the bound of the scope the
+      verdict is recomputed with (name the service, the stack and the
+      environment as the reports name them); empty for the whole loop.
     required: false
     default: ""
   fail-on:
@@ -41,8 +43,13 @@ outputs:
   status:
     description: >-
       The loop's verdict - `ok`, `warning` or `error` - as the package's
-      own get-status rules compute it: the verdict line its rendering
-      opens with. `error` when the answer carries none.
+      own get-status script computes it: the verdict step runs that
+      script again on the checkout, scoped as the prompt names (the
+      run's rulings are its own and are dropped), and reads the verdict
+      line its rendering opens with - never a line of the model's
+      answer. `error` when the script cannot compute (not found, a flag
+      or a scope the action does not pass on, a failure), and the step
+      then fails whatever fail-on says.
     value: ${{ steps.verdict.outputs.status }}
   summary:
     description: One sentence on that verdict, the model's.
@@ -50,7 +57,7 @@ outputs:
   todo:
     description: >-
       The next actions, most urgent first, as a JSON array of {action, why} -
-      the rendering's todo line.
+      the todo line of that same rendering.
     value: ${{ steps.verdict.outputs.todo }}
   report:
     description: The run's whole answer, the status as the packaged command renders it.
@@ -112,7 +119,13 @@ runs:
         FAIL_ON: ${{ inputs.fail-on }}
         EVENTS: ${{ runner.temp }}/odd-status-events.jsonl
         SCRIPT: ${{ github.action_path }}/scripts/verdict.py
+        # The checkout the package's script is run on again: the same
+        # directory the launch ran in. The prompt bounds the scope the
+        # run may report.
+        CHECKOUT: ${{ github.workspace }}
+        PROMPT: ${{ inputs.prompt }}
       run: |
         set -euo pipefail
-        python3 "$SCRIPT" --cli "$ODDYSSEY_CLI" --events "$EVENTS" --fail-on "$FAIL_ON" \
-          --outputs "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+        python3 "$SCRIPT" --cli "$ODDYSSEY_CLI" --events "$EVENTS" --checkout "$CHECKOUT" \
+          --prompt "$PROMPT" --fail-on "$FAIL_ON" --outputs "$GITHUB_OUTPUT" \
+          --summary "$GITHUB_STEP_SUMMARY"

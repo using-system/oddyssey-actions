@@ -23,11 +23,13 @@ case "$ODDYSSEY_CLI" in copilot|opencode|claude) ;; *)
   echo "::error::ODDYSSEY_CLI is '${ODDYSSEY_CLI}' - this action runs copilot, opencode or claude."; exit 1 ;;
 esac
 # The contract verdict.py parses. The status and the todo are the
-# package's own: get-status opens its rendering with a verdict line and
-# a todo line, computed by its rules from every report, ruling and ledger
-# row, and the run prints them unchanged. The model's part is the
-# one-sentence summary.
-INSTRUCTION='Print the rendering unchanged, its verdict and todo lines included, then end your answer with exactly one fenced json code block and nothing after it: {"summary": "<one sentence on the verdict>"}.'
+# package's own: the verdict step runs get-status's script again on the
+# checkout, with the scope the run reports in the block (bounded by the
+# prompt; the run's rulings dropped), and reads the verdict and todo
+# lines its rendering opens with - never a line of the answer. The
+# model's part is the one-sentence summary and the flags it ran the
+# script with.
+INSTRUCTION='Print the rendering unchanged, its verdict and todo lines included, then end your answer with exactly one fenced json code block and nothing after it: {"summary": "<one sentence on the verdict>", "flags": [<the flags you passed after --render on your last odd_status.py run, one string per flag and per value, [] when none>]}.'
 # The command's arguments, handed to the launch step through a file: the
 # prompt is the caller's text and never goes through GITHUB_OUTPUT or
 # GITHUB_ENV.
