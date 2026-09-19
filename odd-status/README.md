@@ -16,7 +16,7 @@ installed, and turns its verdict into outputs a workflow can gate on:
 | --- | --- | --- | --- |
 | `prompt` | no | | What the status is about, in the caller's words: a service, a stack, a question (`the checkout service on prod`). Passed to the packaged command as its arguments; empty for the whole loop; never starting with a dash. |
 | `fail-on` | no | `none` | Fail the step when the status reaches this level: `warning` (warning or error fail), `error` (error fails), `none` (the outputs carry the verdict; the step still fails when the run produced no answer). |
-| `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode and Claude Code runs never receive it. The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user. Passed as given. |
+| `token` | no | `${{ github.token }}` | The token the Copilot run authenticates with, set as `GITHUB_TOKEN` on the Copilot launch step and nowhere else; the opencode and Claude Code steps receive none from this action (the checkout's `persist-credentials: false` keeps the job token out of the checkout's `.git/config`, see "What this grants"). The workflow's own token by default, under the job permission `copilot-requests: write`; a user token (`${{ secrets.COPILOT_USER_TOKEN }}`) when the run must be billed to a user, readable by the model's shell as the Copilot bullet below says. Passed as given. |
 
 ## Outputs
 
@@ -53,8 +53,16 @@ documents:
   the default, the workflow's own token, and that permission is the
   only thing the caller sets. The launch line grants a shell, file
   access to the skills only, no instructions from the checkout, no
-  built-in GitHub MCP server, the token stripped from the shells the
-  run opens. What the CLI accepts is GitHub's: its Actions
+  built-in GitHub MCP server, and keeps the token out of the
+  environment of the shells and MCP servers the run opens and out of
+  the output (`--secret-env-vars GITHUB_TOKEN`, as the CLI's help
+  states it). That flag is a filter, not a boundary: the CLI process
+  itself holds the token, and a shell running as the runner's user can
+  read a process's environment (`/proc/<pid>/environ` on Linux), so
+  the model's shell can reach it the way it can reach opencode's key
+  file and Claude Code's credential file. A user token passed as
+  `token` is exposed the same way: scope it to Copilot requests alone
+  and keep it short-lived. What the CLI accepts is GitHub's: its Actions
   documentation names the workflow's `GITHUB_TOKEN` under
   `copilot-requests: write`, and the CLI's own help says only that the
   variable holds "an authentication token"; the action passes the
@@ -106,6 +114,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: using-system/oddyssey-actions/setup-copilot@v1
       - id: status
         uses: using-system/oddyssey-actions/odd-status@v1
@@ -120,19 +130,27 @@ jobs:
 With opencode or Claude Code, replace the setup step by
 `setup-opencode` with its `openai-api-key`, or `setup-claude` with its
 `claude-oauth-token` or `anthropic-api-key`, and drop the
-`copilot-requests` permission: those steps receive no token. To bill the Copilot run to a user,
-add `token: ${{ secrets.COPILOT_USER_TOKEN }}` under `with:`.
+`copilot-requests` permission: those steps receive no token from this
+action. To bill the Copilot run to a user, add
+`token: ${{ secrets.COPILOT_USER_TOKEN }}` under `with:`.
 
 ## What this grants
 
 The run is the setup's launch line: the model runs any shell command the
 runner allows, reads and writes the checkout and the package's
-directory, and reaches the network. Keep the job at `contents: read`
-(plus `copilot-requests: write` for Copilot), never put the step on a
-trigger that carries untrusted input (`issue_comment`,
-`pull_request_target`, a fork's `pull_request`), and treat the outputs
-as the model's text before a later step acts on them - a `todo` is a
-list to read, not a command to run.
+directory, and reaches the network. The checkout is part of that: with
+`actions/checkout` at its defaults the job token is persisted in the
+checkout's `.git/config`, readable by the model's shell on every CLI,
+which is why the examples set `persist-credentials: false` - nothing
+in these actions uses git with the token. Keep the job at
+`contents: read` (plus `copilot-requests: write` for Copilot), never
+put the step on a trigger that carries untrusted input
+(`issue_comment`, `pull_request_target`, a fork's `pull_request`), and
+mind a same-repository `pull_request` too: its author writes the
+checkout's `.odd/`, which the run reads on every CLI, and the
+instruction files opencode and Claude Code read. Treat the outputs as
+the model's text before a later step
+acts on them - a `todo` is a list to read, not a command to run.
 
 ## Pinning
 

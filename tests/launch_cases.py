@@ -66,7 +66,7 @@ def check_unset_command_fails_before_the_cli(script, fake_cli, tmp_path, action,
     assert not argv.called
 
 
-def check_copilot_launches_scoped_with_the_token_stripped(
+def check_copilot_launches_scoped_with_secret_env_vars(
     script, fake_cli, tmp_path, action, command
 ):
     argv = fake_cli(

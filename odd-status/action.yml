@@ -28,9 +28,12 @@ inputs:
     description: >-
       The token the Copilot run authenticates with, set as `GITHUB_TOKEN`
       on the Copilot launch step and nowhere else; the opencode and Claude
-      Code runs never receive it. Defaults to the workflow's own token, which needs the
-      job permission `copilot-requests: write`; a user token when the run
-      must be billed to a user. The action passes it as given.
+      Code steps receive none from this action (a job token
+      `actions/checkout` persisted in the checkout is another matter: the
+      README's examples set `persist-credentials: false`). Defaults to the
+      workflow's own token, which needs the job permission
+      `copilot-requests: write`; a user token when the run must be billed
+      to a user. The action passes it as given.
     required: false
     default: ${{ github.token }}
 

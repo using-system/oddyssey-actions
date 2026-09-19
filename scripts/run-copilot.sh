@@ -36,9 +36,13 @@ arguments="$(cat "$ARGUMENTS_FILE")"
 # the model as written and the model routes it to the packaged
 # skill. Scoped: tools auto-approved (non-interactive mode requires
 # it), file access to the skills only, no instructions from the
-# checkout, the built-in GitHub MCP server off, the token stripped
-# from the shells the run opens, the installed version and nothing
-# newer.
+# checkout, the built-in GitHub MCP server off, the token kept out of
+# the environment of the shells and MCP servers the run opens and
+# redacted from the output (--secret-env-vars, as the CLI's help
+# states it - the CLI process itself holds the token, and a shell
+# running as the same user can read a process's environment, so the
+# flag is a filter, not a boundary), the installed version and
+# nothing newer.
 copilot -p "/${COMMAND} ${arguments}" --model "$ODDYSSEY_MODEL" \
   --allow-all-tools --add-dir "$HOME/.agents/skills" \
   --no-ask-user --no-custom-instructions --disable-builtin-mcps \

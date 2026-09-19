@@ -71,9 +71,19 @@ jobs:
     # still does, with a placeholder key no step of the setup spends, so
     # every cell reports its required check (a job-level condition would
     # collapse the matrix into one unexpanded check the ruleset never
-    # sees). opencode has no --no-custom-instructions: the checkout's
-    # AGENTS.md reaches that run; accepted, since it runs on this
-    # repository's own branches only.
+    # sees). The head-repository gate on the step is the workflow's
+    # half; the host's is that a public repository's fork pull_request
+    # run gets no write scope whatever `permissions` asks - read from
+    # GitHub's workflow-syntax documentation, not from a fork run's log:
+    # the key can add or remove read permissions for a fork's run, and
+    # the one exception that grants write exists for private
+    # repositories only - so the copilot-requests: write below is not
+    # minted for a fork's run, and the fork-approval policy (all
+    # external contributors) keeps a fork's workflow from running before
+    # a maintainer approves it.
+    # opencode has no --no-custom-instructions: the checkout's AGENTS.md
+    # reaches that run; accepted, since it runs on this repository's own
+    # branches only.
     strategy:
       fail-fast: false
       matrix:
@@ -92,6 +102,11 @@ jobs:
       ACTION: ${{ matrix.action }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The job token stays out of the checkout's .git/config: every
+          # launch below runs an auto-approved shell in this directory,
+          # and nothing here uses git with the token.
+          persist-credentials: false
       - name: Install uv
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: The action's tests, off the runner
