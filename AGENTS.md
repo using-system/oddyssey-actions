@@ -265,9 +265,13 @@ Push a tag `vX.Y.Z`: the release workflow creates the GitHub release
 with notes generated from the merged PR titles and moves the `vX`
 floating major tag to it. Consumers pin `@vX`, an exact tag or a SHA.
 The `/publish` command (`.claude/commands/publish.md`) drives it from
-a Claude Code session: preflight on `main`, the bump picked from the
-merged PR titles, the tag pushed on confirmation, the run watched to
-completion, then each shipped issue labelled `release: vX.Y.Z`.
+a Claude Code session: preflight on `main` (in sync with
+`origin/main`, its commit's `ci` run completed and green - a red,
+running or missing `ci` run stops the command before any version is
+offered; the release workflow itself does not check `ci`), the bump
+picked from the merged PR titles, the tag pushed on confirmation, the
+run watched to completion, then each shipped issue labelled
+`release: vX.Y.Z`.
 
 ## Title and label every issue
 

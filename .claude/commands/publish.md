@@ -7,7 +7,9 @@ order: the release workflow checks the tag is a plain `vX.Y.Z` on
 `main`, creates the GitHub release with notes generated from the merged
 PR titles, and moves the `vX` floating major tag to it. There is no
 release PR, no artifact to publish and no approval gate: once the tag
-is pushed, the release happens or the run fails.
+is pushed, the release happens or the run fails. The workflow does not
+check `ci` either - the preflight below is the only place a red or
+unfinished `ci` run on `main` stops a release, so it is never skipped.
 
 - Arguments: $ARGUMENTS
 - Expected fields (optional, free-form): the bump to apply (`patch`,
@@ -26,6 +28,31 @@ Steps:
      `git tag -l 'v*.*.*' --sort=-v:refname | head -1` (the pattern
      skips the floating `v1`; no tag at all = first release, treat the
      base as v0.0.0 and say so);
+   - **the `ci` run of the commit about to be tagged is green**: read
+     the run of the commit `origin/main` names -
+     `gh run list --workflow ci.yml --branch main --commit "$(git rev-parse origin/main)" --limit 1 --json databaseId,status,conclusion,url`
+     - and stop, naming the run's URL, unless it exists, its status is
+     `completed` and its conclusion is `success`:
+     - an empty list: `ci` never ran for that commit (the push event
+       created no run, or not yet) - say so; check
+       `gh run list --workflow ci.yml --branch main --limit 3` and, when
+       the run appears, run the preflight again; never tag a commit
+       `ci` did not run on;
+     - a status other than `completed` (`queued`, `in_progress`,
+       `waiting`, ...): `ci` is still running - offer to watch it
+       (`gh run watch <run-id>`) and run the preflight again once it
+       completes; do not offer a version meanwhile;
+     - a conclusion other than `success` (`failure`, `cancelled`,
+       `timed_out`, `action_required`, ...): `main` is red - point at
+       `gh run view <run-id> --log-failed`. The recovery is a fix
+       merged to `main` (a new commit, a new run) or, when the cause
+       is transient (a download reset, a runner outage),
+       `gh run rerun <run-id> --failed`; either way, the preflight runs
+       again once that commit's run is green. (`ci`'s concurrency
+       group cancels a run only when a newer push to `main` superseded
+       it, and that newer commit is the one read here: a `cancelled`
+       run on the current `origin/main` was cancelled by hand -
+       `gh run rerun <run-id>` restarts it.)
    - check the latest tag's release run
      (`gh run list --workflow release.yml --limit 1`): if it FAILED,
      do not offer a new version - guide the recovery instead. The
