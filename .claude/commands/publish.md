@@ -30,12 +30,15 @@ Steps:
      base as v0.0.0 and say so);
    - **the `ci` run of the commit about to be tagged is green**: read
      the run of the commit `origin/main` names -
-     `gh run list --workflow ci.yml --branch main --commit "$(git rev-parse origin/main)" --limit 1 --json databaseId,status,conclusion,url`
-     - and stop, naming the run's URL, unless it exists, its status is
-     `completed` and its conclusion is `success`:
+     `gh run list --workflow ci.yml --event push --branch main --commit "$(git rev-parse origin/main)" --limit 1 --json databaseId,status,conclusion,url`
+     (`--event push`: the run of the push to `main`, never a
+     `pull_request` run of a head branch that happens to carry the
+     same name and commit) - then stop, naming the run's URL when there
+     is one, unless it exists, its status is `completed` and its
+     conclusion is `success`:
      - an empty list: `ci` never ran for that commit (the push event
        created no run, or not yet) - say so; check
-       `gh run list --workflow ci.yml --branch main --limit 3` and, when
+       `gh run list --workflow ci.yml --event push --branch main --limit 3` and, when
        the run appears, run the preflight again; never tag a commit
        `ci` did not run on;
      - a status other than `completed` (`queued`, `in_progress`,
@@ -50,9 +53,11 @@ Steps:
        `gh run rerun <run-id> --failed`; either way, the preflight runs
        again once that commit's run is green. (`ci`'s concurrency
        group cancels a run only when a newer push to `main` superseded
-       it, and that newer commit is the one read here: a `cancelled`
-       run on the current `origin/main` was cancelled by hand -
-       `gh run rerun <run-id>` restarts it.)
+       it, and that newer commit is the one read here: when a fresh
+       `git fetch origin` still names the same commit, a `cancelled`
+       run on it was cancelled by hand - `gh run rerun <run-id>`
+       restarts it; when `origin/main` moved meanwhile, start the
+       preflight over on the new commit.)
    - check the latest tag's release run
      (`gh run list --workflow release.yml --limit 1`): if it FAILED,
      do not offer a new version - guide the recovery instead. The
