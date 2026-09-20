@@ -15,9 +15,10 @@ case "$(uname -s)/$(uname -m)" in
   *) echo "::error::unsupported runner $(uname -s)/$(uname -m)"; exit 1 ;;
 esac
 work="$(mktemp -d)"
-# --retry alone covers a timeout or a 408/429/5xx; a connection reset
-# is not "transient" to curl. --retry-all-errors makes the three retries
-# cover every failure; what lands is verified below all the same.
+# --retry alone covers a timeout or a 408, 429, 500, 502, 503 or 504;
+# a connection reset is not "transient" to curl. --retry-all-errors
+# makes the three retries cover every failure; what lands is verified
+# below all the same.
 curl -fsSL --retry 3 --retry-all-errors -o "${work}/${asset}" "https://github.com/sst/opencode/releases/download/v${OPENCODE_VERSION}/${asset}"
 if command -v sha256sum >/dev/null 2>&1; then
   actual="$(sha256sum "${work}/${asset}" | awk '{print $1}')"

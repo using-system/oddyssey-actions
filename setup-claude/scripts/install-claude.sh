@@ -22,9 +22,10 @@ platform="${os}-${arch}"
 # it. No installer script runs; nothing is fetched from npm.
 base="https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}"
 work="$(mktemp -d)"
-# --retry alone covers a timeout or a 408/429/5xx; a connection reset
-# is not "transient" to curl. --retry-all-errors makes the three retries
-# cover every failure; what lands is verified below all the same.
+# --retry alone covers a timeout or a 408, 429, 500, 502, 503 or 504;
+# a connection reset is not "transient" to curl. --retry-all-errors
+# makes the three retries cover every failure; what lands is verified
+# below all the same.
 curl -fsSL --retry 3 --retry-all-errors -o "${work}/manifest.json" "${base}/manifest.json"
 expected="$(python3 -c '
 import json, sys
