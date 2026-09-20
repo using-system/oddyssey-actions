@@ -22,7 +22,11 @@ platform="${os}-${arch}"
 # it. No installer script runs; nothing is fetched from npm.
 base="https://downloads.claude.ai/claude-code-releases/${CLAUDE_CODE_VERSION}"
 work="$(mktemp -d)"
-curl -fsSL --retry 3 -o "${work}/manifest.json" "${base}/manifest.json"
+# --retry alone covers a timeout or a 408, 429, 500, 502, 503 or 504;
+# a connection reset is not "transient" to curl. --retry-all-errors
+# makes the three retries cover every failure; what lands is verified
+# below all the same.
+curl -fsSL --retry 3 --retry-all-errors -o "${work}/manifest.json" "${base}/manifest.json"
 expected="$(python3 -c '
 import json, sys
 platforms = json.load(open(sys.argv[1])).get("platforms") or {}
@@ -32,7 +36,7 @@ if ! printf '%s' "$expected" | grep -Eq '^[0-9a-f]{64}$'; then
   echo "::error::the manifest of Claude Code ${CLAUDE_CODE_VERSION} carries no checksum for ${platform}."
   exit 1
 fi
-curl -fsSL --retry 3 -o "${work}/claude" "${base}/${platform}/claude"
+curl -fsSL --retry 3 --retry-all-errors -o "${work}/claude" "${base}/${platform}/claude"
 if command -v sha256sum >/dev/null 2>&1; then
   actual="$(sha256sum "${work}/claude" | awk '{print $1}')"
 else

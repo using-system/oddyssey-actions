@@ -50,6 +50,10 @@ def test_installs_the_verified_binary_and_checks_the_version(
     assert f"Claude Code {VERSION} ({PLATFORM}, checksum verified)" in result.stdout
     urls = [a for call in curl.calls() for a in call if a.startswith("https://")]
     assert urls == [f"{BASE}/manifest.json", f"{BASE}/{PLATFORM}/claude"]
+    # A reset connection is not a "transient" error to curl's --retry alone:
+    # every download retries on every error, and what lands is checksummed.
+    for call in curl.calls():
+        assert "--retry" in call and "--retry-all-errors" in call, call
 
 
 def test_fails_on_a_checksum_mismatch_before_installing(script, fake_curl, tmp_path):
