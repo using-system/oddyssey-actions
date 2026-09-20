@@ -29,8 +29,8 @@ jobs:
           # lands at the repository root.
           base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
           asset="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL --retry 3 -o "$asset" "${base}/${asset}"
-          curl -fsSL --retry 3 -o checksums.txt "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+          curl -fsSL --retry 3 --retry-all-errors -o "$asset" "${base}/${asset}"
+          curl -fsSL --retry 3 --retry-all-errors -o checksums.txt "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
           sha256sum --check --ignore-missing checksums.txt
           tar -xzf "$asset" actionlint
           rm -f "$asset" checksums.txt

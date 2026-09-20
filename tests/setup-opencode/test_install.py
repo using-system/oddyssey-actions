@@ -40,6 +40,10 @@ def test_installs_the_verified_archive_and_checks_the_version(
     assert urls == [
         f"https://github.com/sst/opencode/releases/download/v{VERSION}/{ASSET}"
     ]
+    # A reset connection is not a "transient" error to curl's --retry alone:
+    # every download retries on every error, and what lands is checksummed.
+    for call in curl.calls():
+        assert "--retry" in call and "--retry-all-errors" in call, call
 
 
 def test_fails_on_a_checksum_mismatch_before_extracting(script, fake_curl, tmp_path):

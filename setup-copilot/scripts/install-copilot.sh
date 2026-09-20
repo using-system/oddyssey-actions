@@ -19,8 +19,11 @@ esac
 asset="copilot-${os}-${arch}.tar.gz"
 base="https://github.com/github/copilot-cli/releases/download/v${COPILOT_CLI_VERSION}"
 work="$(mktemp -d)"
-curl -fsSL --retry 3 -o "${work}/${asset}" "${base}/${asset}"
-curl -fsSL --retry 3 -o "${work}/SHA256SUMS.txt" "${base}/SHA256SUMS.txt"
+# --retry alone covers a timeout or a 408/429/5xx; a connection reset
+# is not "transient" to curl. --retry-all-errors makes the three retries
+# cover every failure; what lands is verified below all the same.
+curl -fsSL --retry 3 --retry-all-errors -o "${work}/${asset}" "${base}/${asset}"
+curl -fsSL --retry 3 --retry-all-errors -o "${work}/SHA256SUMS.txt" "${base}/SHA256SUMS.txt"
 expected="$( (grep -E "  ${asset}\$" "${work}/SHA256SUMS.txt" || true) | awk '{print $1}')"
 if [ -z "$expected" ]; then
   echo "::error::SHA256SUMS.txt of copilot-cli v${COPILOT_CLI_VERSION} carries no entry for ${asset}."
